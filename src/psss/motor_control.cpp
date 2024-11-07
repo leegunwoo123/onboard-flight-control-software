@@ -294,21 +294,6 @@ double mapControlInput(int value) {
     return 0.0;
 }
 
-// // 제어 입력(에일러론, 엘리베이터, 러더)을 -0.2 ~ 0.2 범위로 매핑하는 함수
-// double mapControlInput(int value) {
-//     if (value < RC_MIN || value > RC_MAX) {
-//         std::cerr << "Control input out of range: " << value << std::endl;
-//         return 0.0;
-//     }
-//     if (value < RC_MID) {
-//         return 0.5 * static_cast<double>(value - RC_MID) / (RC_MID - RC_MIN);
-//     } else if (value > RC_MID) {
-//         return 0.5 * static_cast<double>(value - RC_MID) / (RC_MAX - RC_MID);
-//     } else {
-//         return 0.0;
-//     }
-// }
-
 // 스로틀 PWM 계산 함수
 int computeThrottlePWM(double throttle_normalized) {
     return static_cast<int>(PWM_MIN + throttle_normalized * (PWM_MAX - PWM_MIN));

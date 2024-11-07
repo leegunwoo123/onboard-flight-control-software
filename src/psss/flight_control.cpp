@@ -1,5 +1,5 @@
 #include "flight_control.h"
-// #include "../ioss/rc_input.h"
+#include "../ioss/rc_input.h"
 #include "../ioss/gps_sensor.h"
 #include "../ioss/imu_sensor.h"
 #include <iostream>
@@ -8,8 +8,8 @@
 // 모든 장치를 초기화하는 함수
 void flight_control_init() {
     // RC 초기화
-    // std::cout << "Initializing RC input..." << std::endl;
-    // initRC();
+    std::cout << "Initializing RC input..." << std::endl;
+    initRC("/dev/ttyAMA0", B115200);
 
     // GPS 초기화
     std::cout << "Initializing GPS..." << std::endl;
@@ -21,3 +21,4 @@ void flight_control_init() {
 
     std::cout << "Flight control system initialized." << std::endl;
 }
+
