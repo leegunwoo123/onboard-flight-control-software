@@ -242,7 +242,8 @@ void PoseEstimator::calibrateGyro() {
 
 void PoseEstimator::calculatePose() {
     while (running) {
-        float dt = 0.02f;
+        // float dt = 0.02f;
+        float dt = 0.1f;
 
         if (imuAccel.hasNaN() || imuGyro.hasNaN()) {
             std::cerr << "Invalid IMU data detected, using last valid data" << std::endl;
@@ -258,7 +259,7 @@ void PoseEstimator::calculatePose() {
             currentState = ekf.getState();
         }
 
-        std::this_thread::sleep_for(loopDuration);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
