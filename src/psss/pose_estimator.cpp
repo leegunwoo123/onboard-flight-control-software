@@ -242,7 +242,6 @@ void PoseEstimator::calibrateGyro() {
 
 void PoseEstimator::calculatePose() {
     while (running) {
-        // float dt = 0.02f;
         float dt = 0.1f;
 
         if (imuAccel.hasNaN() || imuGyro.hasNaN()) {
