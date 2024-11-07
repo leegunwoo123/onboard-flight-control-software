@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <csignal>
 
-#define BUFFER_SIZE 128    // 버퍼 크기를 128로 줄임
+#define BUFFER_SIZE 128    // 버퍼 크기를 128로 설정
 #define COMMAND_SIZE 100   // 명령어 크기 정의
 #define CRC_SIZE 4         // CRC 크기 정의
 
@@ -74,87 +74,80 @@ void sendIMURequest() {
     write(serial_port, command, strlen(command));
 }
 
+// IMU 데이터 읽기 및 처리 함수
 IMUData readIMU() {
-    char response[100];  // 응답 데이터를 저장할 배열
-    char buffer[BUFFER_SIZE];  // IMU 데이터 저장 버퍼 (128로 줄임)
+    char buffer[BUFFER_SIZE];  // IMU 데이터 저장 버퍼 (128로 설정)
     int buffer_index = 0;
     IMUData imuData = {};
 
-    bool data_received = false;
-
-    while (!data_received) {
+    while (true) {
         sendIMURequest();
         usleep(1000);  // 요청 간격 설정
 
-        int bytes_read = read(serial_port, response, sizeof(response) - 1);
+        int bytes_read = read(serial_port, buffer + buffer_index, sizeof(buffer) - buffer_index - 1);
         if (bytes_read > 0) {
-            response[bytes_read] = '\0';
-
-            // 버퍼가 꽉 찼으면 가장 오래된 데이터를 제거하고 새 데이터를 추가
-            if (buffer_index + bytes_read >= BUFFER_SIZE) {
-                int shift_amount = buffer_index + bytes_read - BUFFER_SIZE;
-                memmove(buffer, buffer + shift_amount, BUFFER_SIZE - shift_amount);
-                buffer_index = BUFFER_SIZE - shift_amount;
-            }
-
-            // 새 데이터를 버퍼에 추가
-            memcpy(buffer + buffer_index, response, bytes_read);
             buffer_index += bytes_read;
             buffer[buffer_index] = '\0';
 
             char* line_start = buffer;
             char* line_end;
-            char* last_line = NULL;
 
             while ((line_end = strchr(line_start, '\n')) != NULL) {
                 *line_end = '\0';
+
                 if (strncmp(line_start, "$VNRRG", 6) == 0) {
-                    last_line = line_start;
-                    data_received = true;
+                    char* end_of_data = strchr(line_start, '*');
+                    if (end_of_data) {
+                        *end_of_data = '\0';
+
+                        std::vector<std::string> parts;
+                        std::istringstream ss(line_start);
+                        std::string token;
+
+                        while (std::getline(ss, token, ',')) {
+                            parts.push_back(token);
+                        }
+
+                        if (parts.size() >= 11) {
+                            unsigned short received_crc = std::stoi(end_of_data + 1, nullptr, 16);
+                            unsigned short calculated_crc = calculateCRC((unsigned char *)line_start + 1, strlen(line_start) - 1);
+
+                            if (received_crc == calculated_crc) {
+                                imuData.accelX = std::stof(parts[5]);
+                                imuData.accelY = std::stof(parts[6]);
+                                imuData.accelZ = std::stof(parts[7]);
+                                imuData.gyroX = std::stof(parts[8]);
+                                imuData.gyroY = std::stof(parts[9]);
+                                imuData.gyroZ = std::stof(parts[10]);
+
+                                struct timeval current_time;
+                                gettimeofday(&current_time, NULL);
+                                imuData.timestamp = (current_time.tv_sec * 1000.0) + (current_time.tv_usec / 1000.0);
+                                imuData.elapsed_time = imuData.timestamp - previous_timestamp;
+                                previous_timestamp = imuData.timestamp;
+
+                                return imuData;
+                            } else {
+                                fprintf(stderr, "CRC mismatch: Received: %04X, Calculated: %04X\n", received_crc, calculated_crc);
+                            }
+                        } else {
+                            fprintf(stderr, "Invalid data format\n");
+                        }
+                    }
                 }
+
+                // 다음 줄로 이동
                 line_start = line_end + 1;
             }
 
-            if (last_line) {
-                char* end_of_data = strchr(last_line, '*');
-                if (end_of_data) {
-                    *end_of_data = '\0';
-
-                    std::vector<std::string> parts;
-                    std::istringstream ss(last_line);
-                    std::string token;
-
-                    while (std::getline(ss, token, ',')) {
-                        parts.push_back(token);
-                    }
-
-                    if (parts.size() >= 11) {
-                        unsigned short received_crc = std::stoi(end_of_data + 1, nullptr, 16);
-                        unsigned short calculated_crc = calculateCRC((unsigned char *)last_line + 1, strlen(last_line) - 1);
-
-                        if (received_crc == calculated_crc) {
-                            imuData.accelX = std::stof(parts[5]);
-                            imuData.accelY = std::stof(parts[6]);
-                            imuData.accelZ = std::stof(parts[7]);
-                            imuData.gyroX = std::stof(parts[8]);
-                            imuData.gyroY = std::stof(parts[9]);
-                            imuData.gyroZ = std::stof(parts[10]);
-
-                            struct timeval current_time;
-                            gettimeofday(&current_time, NULL);
-                            imuData.timestamp = (current_time.tv_sec * 1000.0) + (current_time.tv_usec / 1000.0);
-                            imuData.elapsed_time = imuData.timestamp - previous_timestamp;
-                            previous_timestamp = imuData.timestamp;
-                        } else {
-                            fprintf(stderr, "CRC mismatch: Received: %04X, Calculated: %04X\n", received_crc, calculated_crc);
-                        }
-                    } else {
-                        fprintf(stderr, "Invalid data format\n");
-                    }
-                }
+            // 남은 데이터가 있으면 버퍼의 시작으로 이동
+            if (line_start < buffer + buffer_index) {
+                int remaining_bytes = buffer + buffer_index - line_start;
+                memmove(buffer, line_start, remaining_bytes);
+                buffer_index = remaining_bytes;
+            } else {
+                buffer_index = 0;
             }
         }
     }
-
-    return imuData;
 }
