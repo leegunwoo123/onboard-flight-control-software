@@ -112,6 +112,18 @@
 
 
 // 쿼터니언 사용
+#ifndef POSE_ESTIMATOR_H
+#define POSE_ESTIMATOR_H
+
+#include <Eigen/Dense>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <chrono>
+#include "ekf.h"
+#include "imu_sensor.h"
+#include "gps_sensor.h"
+
 class PoseEstimator {
 public:
     PoseEstimator();
