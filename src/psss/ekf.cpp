@@ -535,6 +535,13 @@ void EKF::updateWithGPS(const Eigen::Vector3f& gpsPos, const Eigen::Vector3f& gp
 
 // 자기장 업데이트 (yaw 보정)
 void EKF::updateWithMag(const Eigen::Vector3f& mag) {
+    static int updateCounter = 0;  // 보정 주기 설정을 위한 카운터
+
+    // 보정 주기 설정 (예: 매 10번째 호출마다 보정)
+    if (updateCounter++ % 10 != 0) {
+        return;
+    }
+
     Eigen::Quaternionf attitude(state(6), state(7), state(8), state(9));
     attitude.normalize();
 
@@ -546,12 +553,16 @@ void EKF::updateWithMag(const Eigen::Vector3f& mag) {
 
     float yawError = atan2(normalizedMag.y(), normalizedMag.x()) - atan2(normalizedExpectedMag.y(), normalizedExpectedMag.x());
 
-    const float YAW_CORRECTION_LIMIT = degToRad(0.5f);
-    if (fabs(yawError) > YAW_CORRECTION_LIMIT) {
-        yawError = (yawError > 0 ? 1 : -1) * YAW_CORRECTION_LIMIT;
-    }
+    const float MIN_YAW_ERROR = degToRad(0.01f);  // 최소 보정 오차 (예: 0.01도)
+    const float MAX_YAW_ERROR = degToRad(1.0f);   // 최대 보정 한계
+    const float CORRECTION_SCALE = 0.05f;         // 점진적 보정 비율
 
-    if (mag.norm() > 0.5f && mag.norm() < 50.0f) {
+    // Yaw 보정 적용 조건
+    if (fabs(yawError) > MIN_YAW_ERROR) {
+        yawError = std::clamp(yawError, -MAX_YAW_ERROR, MAX_YAW_ERROR);
+        float correctionFactor = CORRECTION_SCALE * (fabs(yawError) / MAX_YAW_ERROR);  // 동적 보정 비율
+        yawError *= correctionFactor;
+
         Eigen::AngleAxisf yawCorrection(yawError, Eigen::Vector3f::UnitZ());
         attitude = (attitude * Eigen::Quaternionf(yawCorrection)).normalized();
     }
