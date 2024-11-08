@@ -112,9 +112,6 @@
 
 
 // 쿼터니언 사용
-#ifndef POSE_ESTIMATOR_H
-#define POSE_ESTIMATOR_H
-
 #include <Eigen/Dense>
 #include <thread>
 #include <atomic>
@@ -142,7 +139,7 @@ private:
     Eigen::VectorXf currentState;
     Eigen::Vector3f imuAccel;
     Eigen::Vector3f imuGyro;
-    Eigen::Vector3f imuMag;      // 자기장 데이터 추가
+    Eigen::Vector3f imuMag;  // 자기장 데이터 저장을 위한 변수 추가
     Eigen::Vector3f gpsPos;
     Eigen::Vector3f gpsVel;
     std::mutex poseMutex;
@@ -157,5 +154,3 @@ private:
     
     const std::chrono::milliseconds loopDuration = std::chrono::milliseconds(20);
 };
-
-#endif // POSE_ESTIMATOR_H

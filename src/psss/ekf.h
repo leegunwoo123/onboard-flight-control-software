@@ -77,7 +77,6 @@ public:
     void updateWithGPS(const Eigen::Vector3f& gpsPos, const Eigen::Vector3f& gpsVel);
     void updateWithMag(const Eigen::Vector3f& mag);  // 자기장 업데이트 함수
     Eigen::VectorXf getState() const;
-
 private:
     Eigen::VectorXf state;  // 상태 벡터 (위치 3, 속도 3, 자세 4)
     Eigen::MatrixXf covariance;  // 오차 공분산 행렬
