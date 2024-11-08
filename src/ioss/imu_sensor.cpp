@@ -108,7 +108,7 @@ IMUData readIMU() {
                             parts.push_back(token);
                         }
 
-                        if (parts.size() >= 14) {  // 자기장 데이터 포함
+                        if (parts.size() >= 11) {  // 자기장 데이터 포함
                             unsigned short received_crc = std::stoi(end_of_data + 1, nullptr, 16);
                             unsigned short calculated_crc = calculateCRC((unsigned char *)line_start + 1, strlen(line_start) - 1);
 

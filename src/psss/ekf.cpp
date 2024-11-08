@@ -461,17 +461,16 @@ Eigen::Vector3f EKF::lowPassFilter(const Eigen::Vector3f& input, const Eigen::Ve
 
 // 예측 함수
 // IMU 데이터를 바탕으로 시스템의 현재 상태를 예측
-void EKF::predict(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, const Eigen::Vector3f& mag, float dt) {
+void EKF::predict(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, float dt) {
     // 유효하지 않은 값이 있으면 예측 중단
-    if (!isValidValue(accel.norm()) || !isValidValue(gyro.norm()) || !isValidValue(mag.norm())) {
+    if (!isValidValue(accel.norm()) || !isValidValue(gyro.norm())) {
         std::cerr << "유효하지 않은 IMU 데이터 감지됨" << std::endl;
         return;
     }
 
-    // 저주파 필터를 적용하여 가속도, 자이로, 자기장 데이터를 필터링
+    // 저주파 필터를 적용하여 가속도 및 자이로 데이터를 필터링
     Eigen::Vector3f filteredAccel = lowPassFilter(accel, accelLast, ALPHA);
     Eigen::Vector3f filteredGyro = lowPassFilter(gyro, gyroLast, ALPHA);
-    Eigen::Vector3f filteredMag = lowPassFilter(mag, magLast, ALPHA);
 
     // 자이로 값이 작을 경우 (회전이 거의 없을 경우) 업데이트 생략
     if (filteredGyro.norm() < GYRO_THRESHOLD) {
@@ -483,28 +482,9 @@ void EKF::predict(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, con
     computeJacobian(filteredAccel, filteredGyro, dt);
     covariance = jacobian * covariance * jacobian.transpose() + processNoise;
 
-    // 자기장 데이터로 회전 보정 (보조적 역할로 활용)
-    correctOrientationWithMag(filteredMag);
-
     // 마지막 IMU 데이터를 갱신
     accelLast = filteredAccel;
     gyroLast = filteredGyro;
-    magLast = filteredMag;
-}
-
-// 자기장 보정 함수
-void EKF::correctOrientationWithMag(const Eigen::Vector3f& mag) {
-    Eigen::Quaternionf attitude(state(6), state(7), state(8), state(9));
-
-    // 쿼터니언으로부터 회전 행렬을 얻고, 이를 통해 북쪽을 기준으로 자기장 보정
-    Eigen::Matrix3f rotationMatrix = quaternionToRotationMatrix(attitude);
-    Eigen::Vector3f magRef = rotationMatrix.transpose() * mag;  // 예상 자기장 벡터
-    
-    // 여기서 차이를 계산해 보정할 수 있습니다 (자세에 따라 필요한 방식으로 보정)
-    // 이 예에서는 간단한 보정만 수행
-    attitude = Eigen::Quaternionf::FromTwoVectors(magRef, Eigen::Vector3f(1, 0, 0)) * attitude;
-    state(6) = attitude.w();
-    state.segment<3>(7) = attitude.vec();
 }
 
 // 상태 예측 함수
@@ -545,17 +525,8 @@ void EKF::computeJacobian(const Eigen::Vector3f& accel, const Eigen::Vector3f& g
     jacobian.block<3, 3>(3, 6) = rotationMatrix * dt;
 }
 
-// 벡터를 스큐 대칭 행렬로 변환하는 함수
-Eigen::Matrix3f EKF::skewSymmetric(const Eigen::Vector3f& v) {
-    Eigen::Matrix3f skew;
-    skew <<      0, -v.z(),  v.y(),
-             v.z(),      0, -v.x(),
-            -v.y(),  v.x(),      0;
-    return skew;  // 스큐 대칭 행렬 반환
-}
-
-// 상태 업데이트 함수
-void EKF::update(const Eigen::Vector3f& gpsPos, const Eigen::Vector3f& gpsVel) {
+// 상태 업데이트 함수 (GPS 기반)
+void EKF::updateWithGPS(const Eigen::Vector3f& gpsPos, const Eigen::Vector3f& gpsVel) {
     Eigen::Vector3f gpsPos_latlon = gpsPos;       // GPS 위치 데이터
     Eigen::Vector3f gpsVel_m = gpsVel / 1000.0f;  // GPS 속도 데이터 (m/s로 변환)
 
@@ -586,6 +557,24 @@ void EKF::update(const Eigen::Vector3f& gpsPos, const Eigen::Vector3f& gpsVel) {
     covariance = (Eigen::MatrixXf::Identity(10, 10) - K * H) * covariance;
 }
 
+// 자기장 업데이트 (yaw 보정)
+void EKF::updateWithMag(const Eigen::Vector3f& mag) {
+    Eigen::Quaternionf attitude(state(6), state(7), state(8), state(9));
+
+    // 쿼터니언으로부터 회전 행렬을 얻고, 예상 자기장 벡터 생성
+    Eigen::Matrix3f rotationMatrix = quaternionToRotationMatrix(attitude);
+    Eigen::Vector3f expectedMag = rotationMatrix.transpose() * Eigen::Vector3f(1, 0, 0);  // 예상 자기장 벡터
+    Eigen::Vector3f magCorrection = mag - expectedMag;
+
+    // yaw 오차 계산 및 보정 적용
+    float yawCorrection = atan2(magCorrection.y(), magCorrection.x());
+    Eigen::AngleAxisf yawAngle(yawCorrection, Eigen::Vector3f::UnitZ());
+    attitude = Eigen::Quaternionf(yawAngle) * attitude;
+    
+    state(6) = attitude.w();
+    state.segment<3>(7) = attitude.vec();
+}
+
 // 현재 상태 반환 함수
 Eigen::VectorXf EKF::getState() const {
     Eigen::VectorXf stateOut(10);
@@ -597,3 +586,4 @@ Eigen::VectorXf EKF::getState() const {
 
     return stateOut;  // 현재 상태 반환
 }
+

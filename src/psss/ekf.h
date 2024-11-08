@@ -73,8 +73,9 @@ public:
     EKF();
     ~EKF();
 
-    void predict(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, const Eigen::Vector3f& mag, float dt);
-    void update(const Eigen::Vector3f& gpsPos, const Eigen::Vector3f& gpsVel);
+    void predict(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, float dt);
+    void updateWithGPS(const Eigen::Vector3f& gpsPos, const Eigen::Vector3f& gpsVel);
+    void updateWithMag(const Eigen::Vector3f& mag);  // 자기장 업데이트 함수
     Eigen::VectorXf getState() const;
 
 private:
@@ -86,15 +87,11 @@ private:
 
     Eigen::Vector3f accelLast;  // 마지막 가속도 값
     Eigen::Vector3f gyroLast;   // 마지막 자이로 값 (저주파 필터에 사용)
-    Eigen::Vector3f magLast;    // 마지막 자기장 값
 
     Eigen::Matrix3f quaternionToRotationMatrix(const Eigen::Quaternionf& q) const;
     void computeJacobian(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, float dt);  
     void predictState(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, float dt);
     Eigen::Matrix3f skewSymmetric(const Eigen::Vector3f& v);
-    
-    // 보정 함수 선언 추가
-    void correctOrientationWithMag(const Eigen::Vector3f& mag);  // 자기장으로 방향 보정
 
     Eigen::Vector3f lowPassFilter(const Eigen::Vector3f& input, const Eigen::Vector3f& last, float alpha);
 };

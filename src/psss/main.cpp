@@ -104,14 +104,14 @@ int main() {
                   << state(7) << " "
                   << state(8) << std::endl;
 
-        // CSV 파일에 데이터 기록
-        csvFile << std::fixed << std::setprecision(7); // 소수점 7자리까지 기록
-        csvFile << state(0) << ","
-                << state(1) << ","
-                << state(2) << ","
-                << state(6) << ","
-                << state(7) << ","
-                << state(8) << std::endl;
+        // // CSV 파일에 데이터 기록
+        // csvFile << std::fixed << std::setprecision(7); // 소수점 7자리까지 기록
+        // csvFile << state(0) << ","
+        //         << state(1) << ","
+        //         << state(2) << ","
+        //         << state(6) << ","
+        //         << state(7) << ","
+        //         << state(8) << std::endl;
 
         // 100ms 동안 대기
         std::this_thread::sleep_for(loopDuration);

@@ -240,6 +240,7 @@ void PoseEstimator::calibrateGyro() {
     isGyroCalibrated = true;
 }
 
+// calculatePose 함수 수정
 void PoseEstimator::calculatePose() {
     while (running) {
         float dt = 0.1f;
@@ -251,8 +252,14 @@ void PoseEstimator::calculatePose() {
             imuMag.setZero();
         }
 
-        ekf.predict(imuAccel, imuGyro, imuMag, dt);  // imuMag 추가
-        ekf.update(gpsPos, gpsVel);
+        // 예측 단계 (imuMag 인자 제거)
+        ekf.predict(imuAccel, imuGyro, dt);
+
+        // GPS 데이터 업데이트
+        ekf.updateWithGPS(gpsPos, gpsVel);
+
+        // 자기장 데이터를 사용해 yaw 보정
+        ekf.updateWithMag(imuMag);
 
         {
             std::lock_guard<std::mutex> lock(poseMutex);
