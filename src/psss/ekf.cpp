@@ -461,17 +461,18 @@ Eigen::Vector3f EKF::lowPassFilter(const Eigen::Vector3f& input, const Eigen::Ve
 
 // 예측 함수
 // IMU 데이터를 바탕으로 시스템의 현재 상태를 예측
-void EKF::predict(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, float dt) {
+void EKF::predict(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, const Eigen::Vector3f& mag, float dt) {
     // 유효하지 않은 값이 있으면 예측 중단
-    if (!isValidValue(accel.norm()) || !isValidValue(gyro.norm())) {
+    if (!isValidValue(accel.norm()) || !isValidValue(gyro.norm()) || !isValidValue(mag.norm())) {
         std::cerr << "유효하지 않은 IMU 데이터 감지됨" << std::endl;
         return;
     }
 
-    // 저주파 필터를 적용하여 가속도 및 자이로 데이터를 필터링
+    // 저주파 필터를 적용하여 가속도, 자이로, 자기장 데이터를 필터링
     Eigen::Vector3f filteredAccel = lowPassFilter(accel, accelLast, ALPHA);
     Eigen::Vector3f filteredGyro = lowPassFilter(gyro, gyroLast, ALPHA);
-    
+    Eigen::Vector3f filteredMag = lowPassFilter(mag, magLast, ALPHA);
+
     // 자이로 값이 작을 경우 (회전이 거의 없을 경우) 업데이트 생략
     if (filteredGyro.norm() < GYRO_THRESHOLD) {
         return;
@@ -482,9 +483,28 @@ void EKF::predict(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, flo
     computeJacobian(filteredAccel, filteredGyro, dt);
     covariance = jacobian * covariance * jacobian.transpose() + processNoise;
 
+    // 자기장 데이터로 회전 보정 (보조적 역할로 활용)
+    correctOrientationWithMag(filteredMag);
+
     // 마지막 IMU 데이터를 갱신
     accelLast = filteredAccel;
     gyroLast = filteredGyro;
+    magLast = filteredMag;
+}
+
+// 자기장 보정 함수
+void EKF::correctOrientationWithMag(const Eigen::Vector3f& mag) {
+    Eigen::Quaternionf attitude(state(6), state(7), state(8), state(9));
+
+    // 쿼터니언으로부터 회전 행렬을 얻고, 이를 통해 북쪽을 기준으로 자기장 보정
+    Eigen::Matrix3f rotationMatrix = quaternionToRotationMatrix(attitude);
+    Eigen::Vector3f magRef = rotationMatrix.transpose() * mag;  // 예상 자기장 벡터
+    
+    // 여기서 차이를 계산해 보정할 수 있습니다 (자세에 따라 필요한 방식으로 보정)
+    // 이 예에서는 간단한 보정만 수행
+    attitude = Eigen::Quaternionf::FromTwoVectors(magRef, Eigen::Vector3f(1, 0, 0)) * attitude;
+    state(6) = attitude.w();
+    state.segment<3>(7) = attitude.vec();
 }
 
 // 상태 예측 함수

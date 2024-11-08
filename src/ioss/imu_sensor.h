@@ -24,6 +24,9 @@ struct IMUData {
     float gyroX;     // X축 자이로스코프
     float gyroY;     // Y축 자이로스코프
     float gyroZ;     // Z축 자이로스코프
+    float magX;      // X축 자기장
+    float magY;      // Y축 자기장
+    float magZ;      // Z축 자기장
     double timestamp;    // 타임스탬프
     double elapsed_time; // 경과 시간
 };
