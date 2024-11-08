@@ -112,18 +112,6 @@
 
 
 // 쿼터니언 사용
-#ifndef POSE_ESTIMATOR_H
-#define POSE_ESTIMATOR_H
-
-#include <Eigen/Dense>
-#include <thread>
-#include <atomic>
-#include <mutex>
-#include <chrono>
-#include "ekf.h"
-#include "imu_sensor.h"
-#include "gps_sensor.h"
-
 class PoseEstimator {
 public:
     PoseEstimator();
@@ -142,6 +130,7 @@ private:
     Eigen::VectorXf currentState;
     Eigen::Vector3f imuAccel;
     Eigen::Vector3f imuGyro;
+    Eigen::Vector3f imuMag;
     Eigen::Vector3f gpsPos;
     Eigen::Vector3f gpsVel;
     std::mutex poseMutex;
@@ -156,5 +145,3 @@ private:
     
     const std::chrono::milliseconds loopDuration = std::chrono::milliseconds(20);
 };
-
-#endif // POSE_ESTIMATOR_H

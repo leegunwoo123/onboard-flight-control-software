@@ -244,13 +244,14 @@ void PoseEstimator::calculatePose() {
     while (running) {
         float dt = 0.1f;
 
-        if (imuAccel.hasNaN() || imuGyro.hasNaN()) {
+        if (imuAccel.hasNaN() || imuGyro.hasNaN() || imuMag.hasNaN()) {
             std::cerr << "Invalid IMU data detected, using last valid data" << std::endl;
             imuAccel.setZero();
             imuGyro.setZero();
+            imuMag.setZero();
         }
 
-        ekf.predict(imuAccel, imuGyro, dt);
+        ekf.predict(imuAccel, imuGyro, imuMag, dt);  // imuMag 추가
         ekf.update(gpsPos, gpsVel);
 
         {
@@ -271,12 +272,14 @@ void PoseEstimator::processIMU() {
         IMUData imuData = readIMU();
         Eigen::Vector3f newAccel = Eigen::Vector3f(imuData.accelX, imuData.accelY, imuData.accelZ);
         Eigen::Vector3f newGyro = Eigen::Vector3f(imuData.gyroX, imuData.gyroY, imuData.gyroZ) - gyroOffset;
+        Eigen::Vector3f newMag = Eigen::Vector3f(imuData.magX, imuData.magY, imuData.magZ);
 
-        if (newAccel.hasNaN() || newGyro.hasNaN()) {
+        if (newAccel.hasNaN() || newGyro.hasNaN() || newMag.hasNaN()) {
             std::cerr << "Invalid IMU data, keeping last valid data" << std::endl;
         } else {
             imuAccel = newAccel;
             imuGyro = newGyro;
+            imuMag = newMag;
         }
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
