@@ -493,8 +493,7 @@ void EKF::predictState(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro
     Eigen::Vector3f velocity = state.segment<3>(3);    // 속도 추출
     Eigen::Quaternionf attitude(state(6), state(7), state(8), state(9));  // 쿼터니언 추출
 
-    // Quaternion 회전 보정 (PX4와 유사한 방식)
-    Eigen::Quaternionf deltaQ(1, 0.5f * gyro.x() * dt, 0.5f * gyro.y() * dt, 0.5f * gyro.z() * dt);
+    Eigen::Quaternionf deltaQ(1, gyro.x() * dt * 0.1f, gyro.y() * dt * 0.1f, gyro.z() * dt * 0.1f);
     attitude = (attitude * deltaQ).normalized();  // 새로운 회전 상태 계산
 
     // 쿼터니언을 회전 행렬로 변환 후, 월드 좌표계로 가속도를 변환
@@ -517,12 +516,6 @@ void EKF::predictState(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro
 void EKF::computeJacobian(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, float dt) {
     jacobian = Eigen::MatrixXf::Identity(10, 10);
     jacobian.block<3, 3>(0, 3) = Eigen::Matrix3f::Identity() * dt;  // 위치-속도 관계 설정
-
-    Eigen::Quaternionf attitude(state(6), state(7), state(8), state(9));
-    Eigen::Matrix3f rotationMatrix = quaternionToRotationMatrix(attitude);
-
-    // 회전 행렬을 기반으로 자코비안에 회전 관계 추가
-    jacobian.block<3, 3>(3, 6) = rotationMatrix * dt;
 }
 
 // 상태 업데이트 함수 (GPS 기반)
@@ -568,9 +561,19 @@ void EKF::updateWithMag(const Eigen::Vector3f& mag) {
 
     // yaw 오차 계산 및 보정 적용
     float yawCorrection = atan2(magCorrection.y(), magCorrection.x());
-    Eigen::AngleAxisf yawAngle(yawCorrection, Eigen::Vector3f::UnitZ());
-    attitude = Eigen::Quaternionf(yawAngle) * attitude;
-    
+
+    // yaw 보정 각도 제한 설정 (예: 2도 제한)
+    const float YAW_CORRECTION_LIMIT = degToRad(2.0f); // 최대 yaw 보정 각도 (라디안 단위)
+    if (fabs(yawCorrection) > YAW_CORRECTION_LIMIT) {
+        yawCorrection = (yawCorrection > 0 ? 1 : -1) * YAW_CORRECTION_LIMIT;
+    }
+
+    // 자기장 데이터 신뢰성 조건 추가 및 yaw 보정
+    if (mag.norm() > 0.5 && mag.norm() < 50) {  // 기존 0.1~100에서 0.5~50으로 범위 축소
+        Eigen::AngleAxisf yawAngle(yawCorrection, Eigen::Vector3f::UnitZ());
+        attitude = Eigen::Quaternionf(yawAngle) * attitude;
+    }
+
     state(6) = attitude.w();
     state.segment<3>(7) = attitude.vec();
 }
