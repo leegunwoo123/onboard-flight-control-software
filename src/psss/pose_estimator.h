@@ -142,7 +142,7 @@ private:
     Eigen::VectorXf currentState;
     Eigen::Vector3f imuAccel;
     Eigen::Vector3f imuGyro;
-    Eigen::Vector3f imuMag;
+    Eigen::Vector3f imuMag;      // 자기장 데이터 추가
     Eigen::Vector3f gpsPos;
     Eigen::Vector3f gpsVel;
     std::mutex poseMutex;
@@ -157,3 +157,5 @@ private:
     
     const std::chrono::milliseconds loopDuration = std::chrono::milliseconds(20);
 };
+
+#endif // POSE_ESTIMATOR_H
