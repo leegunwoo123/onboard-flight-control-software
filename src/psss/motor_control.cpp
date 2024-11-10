@@ -305,7 +305,7 @@ int computeAdjustment(double control_normalized) {
 }
 
 // 값이 특정 범위 내에 있도록 제한하는 함수
-int clamp(int value, int min_value, int max_value) {
+int clamp(int value,  int min_value, int max_value) {
     return value < min_value ? min_value : (value > max_value ? max_value : value);
 }
 
