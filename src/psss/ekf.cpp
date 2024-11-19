@@ -394,7 +394,7 @@
 //     return stateOut;
 // }
 
-// 쿼터니언 사용
+//쿼터니언 사용
 #include "ekf.h"
 #include <Eigen/Dense>
 #include <cmath>

@@ -326,7 +326,6 @@ int main() {
 
         // 새 범위에 맞춘 스로틀 PWM 계산
         int throttle_PWM = computeThrottlePWM(throttle_normalized);
-
         int aileron_adj = computeAdjustment(aileron_normalized);
         int elevator_adj = computeAdjustment(elevator_normalized);
         int rudder_adj = computeAdjustment(rudder_normalized);
