@@ -86,7 +86,7 @@ IMUData readIMU() {
     while (!data_received) {
 
         sendIMURequest(); // IMU 데이터 요청
-        usleep(1000); // 데이터가 없으면 잠시 대기
+        usleep(10000); // 100ms 대기 (데이터 반환 주기 설정)
 
         int bytes_read = read(serial_port, response, sizeof(response) - 1);
         if (bytes_read > 0) {
@@ -97,7 +97,7 @@ IMUData readIMU() {
                 memcpy(buffer + buffer_index, response, bytes_read); // 버퍼에 데이터 복사
                 buffer_index += bytes_read;  // 인덱스 증가
             } else {
-                fprintf(stderr, "Buffer overflow!\n"); // 버퍼 오버플로우 에러 메시지 출력
+                //fprintf(stderr, "Buffer overflow!\n"); // 버퍼 오버플로우 에러 메시지 출력
                 buffer_index = 0;  // 인덱스 초기화
             }
 
