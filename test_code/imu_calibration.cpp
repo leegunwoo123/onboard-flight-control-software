@@ -46,7 +46,7 @@ IMUCalibrationData calibrateIMU() {
         roll_samples.push_back(roll);
         pitch_samples.push_back(pitch);
 
-        usleep(100000);  // 샘플 간 시간 간격 설정 (10ms)
+        usleep(10000);  // 샘플 간 시간 간격 설정 (10ms)
         sample_count++;
     }
 
