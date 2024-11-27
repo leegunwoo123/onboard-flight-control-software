@@ -303,10 +303,11 @@ int main() {
         } else {
 
             // 모터 조정값 계산
-            int motor1_adj = + aileron_adj_total - elevator_adj_total + yaw_adj;
-            int motor2_adj = - aileron_adj_total + elevator_adj_total + yaw_adj;
-            int motor3_adj = - aileron_adj_total - elevator_adj_total - yaw_adj;
-            int motor4_adj = + aileron_adj_total + elevator_adj_total - yaw_adj;
+            motor1_PWM = throttle_PWM + static_cast<int>((elevator_adj_total + aileron_adj_total) + yaw_adj);
+            motor2_PWM = throttle_PWM + static_cast<int>((-elevator_adj_total + aileron_adj_total) - yaw_adj);
+            motor3_PWM = throttle_PWM + static_cast<int>((-elevator_adj_total - aileron_adj_total) + yaw_adj);
+            motor4_PWM = throttle_PWM + static_cast<int>((elevator_adj_total - aileron_adj_total) - yaw_adj);
+}
             // 조정값을 모터 PWM에 적용
             motor1_PWM = throttle_PWM + motor1_adj;
             motor2_PWM = throttle_PWM + motor2_adj;
