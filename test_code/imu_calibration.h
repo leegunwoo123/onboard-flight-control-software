@@ -8,6 +8,11 @@ struct IMUCalibrationData {
     float offsetX;
     float offsetY;
     float offsetZ;
+    float offsetGyroX;
+    float offsetGyroY;
+    float offsetGyroZ;
+    float stlRoll;
+    float stlPitch;
 };
 
 IMUCalibrationData calibrateIMU();
