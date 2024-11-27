@@ -307,7 +307,7 @@ int main() {
             motor2_PWM = throttle_PWM + static_cast<int>((-elevator_adj_total + aileron_adj_total) - yaw_adj);
             motor3_PWM = throttle_PWM + static_cast<int>((-elevator_adj_total - aileron_adj_total) + yaw_adj);
             motor4_PWM = throttle_PWM + static_cast<int>((elevator_adj_total - aileron_adj_total) - yaw_adj);
-}
+            }
             // 조정값을 모터 PWM에 적용
             motor1_PWM = throttle_PWM + motor1_adj;
             motor2_PWM = throttle_PWM + motor2_adj;
@@ -338,8 +338,8 @@ int main() {
         //           << " Motor3: " << motor3_PWM
         //           << " Motor4: " << motor4_PWM  <<std::flush;
 
-        // std::cout << "target roll: " << roll_adj << std::flush;
-        // std::cout << "current roll: " << accelRoll << std::flush;          
+        std::cout << "target roll: " << targetRoll << std::flush;
+        std::cout << "current roll: " << accelRoll << std::flush;          
 
         usleep(LOOP_DELAY_US); // 10ms 대기
     }

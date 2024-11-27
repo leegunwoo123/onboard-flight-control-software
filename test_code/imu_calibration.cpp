@@ -13,7 +13,7 @@
 IMUCalibrationData calibrateIMU() {
     // initIMU("/dev/ttyUSB0", B115200);
     IMUCalibrationData calibrationData;
-    // IMUData imuData;
+    
     std::vector<float> accelX_samples, accelY_samples, accelZ_samples;
     std::vector<float> gyroX_samples, gyroY_samples, gyroZ_samples;
     std::vector<float> roll_samples, pitch_samples;
