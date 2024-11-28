@@ -303,17 +303,11 @@ int main() {
         } else {
 
             // 모터 조정값 계산
-            motor1_PWM = throttle_PWM + static_cast<int>((elevator_adj_total + aileron_adj_total) + yaw_adj);
-            motor2_PWM = throttle_PWM + static_cast<int>((-elevator_adj_total + aileron_adj_total) - yaw_adj);
-            motor3_PWM = throttle_PWM + static_cast<int>((-elevator_adj_total - aileron_adj_total) + yaw_adj);
-            motor4_PWM = throttle_PWM + static_cast<int>((elevator_adj_total - aileron_adj_total) - yaw_adj);
+            motor1_adj = throttle_PWM + static_cast<int>((elevator_adj_total + aileron_adj_total) + yaw_adj);
+            motor2_adj = throttle_PWM + static_cast<int>((-elevator_adj_total + aileron_adj_total) - yaw_adj);
+            motor3_adj = throttle_PWM + static_cast<int>((-elevator_adj_total - aileron_adj_total) + yaw_adj);
+            motor4_adj = throttle_PWM + static_cast<int>((elevator_adj_total - aileron_adj_total) - yaw_adj);
             }
-            // 조정값을 모터 PWM에 적용
-            motor1_PWM = throttle_PWM + motor1_adj;
-            motor2_PWM = throttle_PWM + motor2_adj;
-            motor3_PWM = throttle_PWM + motor3_adj;
-            motor4_PWM = throttle_PWM + motor4_adj;
-
             // 모터 PWM이 throttle_PWM보다 작을 수 없도록 설정
             motor1_PWM = std::max(motor1_PWM, throttle_PWM);
             motor2_PWM = std::max(motor2_PWM, throttle_PWM);
@@ -325,6 +319,12 @@ int main() {
             motor2_PWM = clamp(motor2_PWM, PWM_MIN, PWM_MAX);
             motor3_PWM = clamp(motor3_PWM, PWM_MIN, PWM_MAX);
             motor4_PWM = clamp(motor4_PWM, PWM_MIN, PWM_MAX);
+
+            // 조정값을 모터 PWM에 적용
+            motor1_PWM = throttle_PWM + motor1_adj;
+            motor2_PWM = throttle_PWM + motor2_adj;
+            motor3_PWM = throttle_PWM + motor3_adj;
+            motor4_PWM = throttle_PWM + motor4_adj;
         }
 
         // 모터에 PWM 값 설정
@@ -338,10 +338,10 @@ int main() {
         //           << " Motor3: " << motor3_PWM
         //           << " Motor4: " << motor4_PWM  <<std::flush;
 
-        std::cout << "target roll: " << targetRoll << std::flush;
-        std::cout << "current roll: " << accelRoll << std::flush;          
+    std::cout << "target roll: " << targetRoll << std::flush;
+    std::cout << "current roll: " << accelRoll << std::flush;          
 
-        usleep(LOOP_DELAY_US); // 10ms 대기
+        usleep(LOOP_DELAY_US);
     }
 
     return 0;
