@@ -15,6 +15,11 @@ struct IMUData {
     float magX;      // X축 자기장
     float magY;      // Y축 자기장
     float magZ;      // Z축 자기장
+    double timestamp;    // 타임스탬프
+    double elapsed_time; // 경과 시간
+    float roll_angle;
+    float pitch_angle;
+    float yaw_angle;
 };
 
 void initIMU(const std::string& port, int baudRate);
