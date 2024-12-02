@@ -86,7 +86,7 @@ IMUData readIMU() {
     while (!data_received) {
 
         sendIMURequest(); // IMU 데이터 요청
-        usleep(10000); // 100ms 대기 (데이터 반환 주기 설정)
+        usleep(25000); // (100)100ms 대기 (데이터 반환 주기 설정)
 
         int bytes_read = read(serial_port, response, sizeof(response) - 1);
         if (bytes_read > 0) {
@@ -139,12 +139,19 @@ IMUData readIMU() {
                         unsigned short calculated_crc = calculateCRC((unsigned char *)last_line + 1, strlen(last_line) - 1); // 계산된 CRC
 
                         if (received_crc == calculated_crc) {  // CRC가 맞으면
-                            imuData.accelX = std::stof(parts[5]);  // X축 가속도
-                            imuData.accelY = std::stof(parts[6]);  // Y축 가속도
-                            imuData.accelZ = std::stof(parts[7]);  // Z축 가속도
-                            imuData.gyroX = std::stof(parts[8]);   // X축 자이로스코프
-                            imuData.gyroY = std::stof(parts[9]);   // Y축 자이로스코프
-                            imuData.gyroZ = std::stof(parts[10]);  // Z축 자이로스코프
+                            imuData.roll_angle = std::stof(parts[3]);  // roll 각도
+                            imuData.pitch_angle = std::stof(parts[2]);  // pitch 각도
+                            imuData.yaw_angle = std::stof(parts[1]);  // yaw 각도
+                            imuData.gyroX = std::stof(parts[6]);   // X축 자이로스코프
+                            imuData.gyroY = std::stof(parts[7]);   // Y축 자이로스코프
+                            imuData.gyroZ = std::stof(parts[8]);  // Z축 자이로스코프
+
+                            // 타임스탬프 계산
+                            struct timeval current_time;
+                            gettimeofday(&current_time, NULL);  // 현재 시간 가져오기
+                            imuData.timestamp = (current_time.tv_sec * 1000.0) + (current_time.tv_usec / 1000.0);  // 밀리초 단위 타임스탬프 계산
+                            imuData.elapsed_time = imuData.timestamp - previous_timestamp;  // 경과 시간 계산
+                            previous_timestamp = imuData.timestamp;  // 이전 타임스탬프 갱신
                         } else {
                             fprintf(stderr, "CRC mismatch: Received: %04X, Calculated: %04X\n", received_crc, calculated_crc); // CRC 불일치 에러 메시지 출력
                         }
