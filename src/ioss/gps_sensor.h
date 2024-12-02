@@ -1,28 +1,3 @@
-// #ifndef GPS_SENSOR_H
-// #define GPS_SENSOR_H
-
-// #include <string>
-
-// // GPSData 구조체 정의
-// struct GPSData {
-//     int32_t longitude;            // 경도
-//     int32_t latitude;            // 위도
-//     int32_t altitude;       // 고도
-//     int32_t gSpeed;         // 지상 속도
-//     uint8_t numSV;          // 위성 수
-//     int32_t velocityX;      // NED 북 방향 속도 (mm/s)
-//     int32_t velocityY;      // NED 동 방향 속도 (mm/s)
-//     int32_t velocityZ;      // NED 하강 방향 속도 (mm/s)
-// };
-
-// // GPS 초기화 함수
-// void initGPS(const std::string& port, int baudRate);
-
-// // GPS 데이터를 읽는 함수
-// GPSData readGPS();
-
-// #endif
-
 #ifndef GPS_SENSOR_H
 #define GPS_SENSOR_H
 
