@@ -72,7 +72,7 @@ void PoseEstimator::calibrateGyro() {
 // 포즈 계산 함수
 void PoseEstimator::calculatePose() {
     while (running) {
-        float dt = 0.1f;
+        float dt = 0.01f;
 
         // 유효하지 않은 IMU 데이터가 감지되면 대체 값으로 초기화
         if (imuAccel.hasNaN() || imuGyro.hasNaN() || imuMag.hasNaN()) {
