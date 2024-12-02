@@ -1,31 +1,3 @@
-// #ifndef EKF_H
-// #define EKF_H
-
-// #include <Eigen/Dense>
-
-// class EKF {
-// public:
-//     EKF();
-//     ~EKF();
-
-//     void predict(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, float dt);
-//     void update(const Eigen::Vector3f& gpsPos, const Eigen::Vector3f& gpsVel);
-//     Eigen::VectorXf getState() const;
-
-// private:
-//     Eigen::VectorXf state;  // 상태 벡터
-//     Eigen::MatrixXf covariance;  // 오차 공분산 행렬
-//     Eigen::MatrixXf processNoise;  // 프로세스 노이즈 행렬
-//     Eigen::MatrixXf measurementNoise;  // 측정 노이즈 행렬
-//     Eigen::MatrixXf jacobian;  // Jacobian 행렬
-
-//     void computeJacobian();  // Jacobian 행렬 계산 함수
-//     void predictState(const Eigen::Vector3f& accel, const Eigen::Vector3f& gyro, float dt);
-//     void updateState(const Eigen::Vector3f& gpsPos, const Eigen::Vector3f& gpsVel);
-// };
-
-// #endif // EKF_H
-
 // // 오일러 사용
 // #ifndef EKF_H
 // #define EKF_H
