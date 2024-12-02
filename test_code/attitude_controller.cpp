@@ -39,12 +39,6 @@ std::array<float, 4> controlAttitude(float dt) {
     int yawInput = readRCChannel(4) / 1;   // 채널 4: 요 입력
     int throttleInput = readRCChannel(3) / 1; // 채널 3: 스로틀 입력
 
-    // 유효하지 않은 입력값 처리
-    // if (rollInput == -1 || pitchInput == -1 || yawInput == -1) {
-    //     std::cerr << "Error reading RC input" << std::endl;
-    //     return {1000.0f, 1100.0f, 1200.0f, 1300.0f};
-    // }
-
     // RC 입력이 없을 경우 목표 각도를 0으로 설정하여 수평 상태 유지
     float targetRoll = (fabs(rollInput) < 0.05f) ? offsetX : rollInput * MAX_TARGET_ANGLE;
     float targetPitch = (fabs(pitchInput) < 0.05f) ? offsetY : pitchInput * MAX_TARGET_ANGLE;
