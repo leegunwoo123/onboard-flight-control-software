@@ -110,38 +110,6 @@ int readRCChannel(int channel) {
     return channels[channel - 1];
 }
 
-// int main() {
-//     const std::string port = "/dev/ttyAMA0";
-//     const int baudRate = B115200;
-
-//     while (true) {
-//         try {
-//             initRC(port, baudRate);
-
-//             while (true) {
-//                 std::cout << "\r";  // 커서를 줄의 처음으로 이동
-
-//                 for (int channel = 1; channel <= 5; ++channel) {
-//                     int value = readRCChannel(channel);
-//                     if (value != -1) {
-//                         std::cout << "Channel " << channel << ": " << value << " ";
-//                     } else {
-//                         std::cerr << "Error reading channel " << channel << " ";
-//                     }
-//                 }
-
-//                 std::cout << std::flush;  // 출력 즉시 반영
-//                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
-//             }
-//         } catch (const std::exception& e) {
-//             std::cerr << "Exception during initialization: " << e.what() << ". Retrying..." << std::endl;
-//             std::this_thread::sleep_for(std::chrono::seconds(1)); // 1초 대기 후 재시도
-//         }
-//     }
-
-//     return 0;
-// }
-
 // #include <fcntl.h>
 // #include <termios.h>
 // #include <unistd.h>
