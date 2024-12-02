@@ -80,7 +80,7 @@ int main() {
             }
             std::cout << std::flush;
 
-            // Handle flags (if needed for other purposes)
+            // 플래그 처리(다른 용도로 필요한 경우)
             uint8_t flags = sbus_data[33];
             bool ch17 = flags & 0x80;
             bool ch18 = flags & 0x40;
