@@ -32,7 +32,7 @@ const float MAX_ANGLE = 90.0f;           // 최대 각도 (예시)
 const float TOLERANCE_ROLL = 0.01f * MAX_ANGLE;   // 롤 허용 오차 (0.45도)
 const float TOLERANCE_PITCH = 0.01f * MAX_ANGLE;  // 피치 허용 오차 (0.45도)
 
-// IMUData 구조체는 imu_sensor.h에서 정의되어 있다고 가정합니다.
+// IMUData 구조체는 imu_sensor.h에서 정의
 IMUData imuData;
 
 class PCA9685 {
