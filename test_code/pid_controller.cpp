@@ -253,7 +253,7 @@ int main() {
     auto previousTime = std::chrono::steady_clock::now();
 
     while (true) {
-        float dt = 0.025f;
+        float dt = 0.01f;
 
         int throttle_value = readRCChannel(3); // 채널 3에서 스로틀 값 읽기
         int aileron_value = readRCChannel(1);  // 채널 1에서 에일러론 값 읽기
