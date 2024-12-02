@@ -319,7 +319,6 @@ int main() {
         Yaw_Rate_PID = yawPID.calculate(rudder_normalized * 1500.0f, correctedGyroZ, dt);
 
         // Pitch, Roll에 대한 각도 에러(Angle Error)
-        // float Pitch_Err = currentPitch - targetPitch;
         float Pitch_Err = accelPitch - targetPitch;
         float Roll_Err = accelRoll - targetRoll;
 
