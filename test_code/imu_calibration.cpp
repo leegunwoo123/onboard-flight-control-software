@@ -11,7 +11,7 @@
 #define _USE_MATH_DEFINES  // M_PI 상수를 활성화
 
 IMUCalibrationData calibrateIMU() {
-    // initIMU("/dev/ttyUSB0", B115200);
+
     IMUCalibrationData calibrationData;
     
     std::vector<float> accelX_samples, accelY_samples, accelZ_samples;
