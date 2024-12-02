@@ -320,7 +320,6 @@ int main() {
 
         // Pitch, Roll에 대한 각도 에러(Angle Error)
         // float Pitch_Err = currentPitch - targetPitch;
-        // float Roll_Err = currentRoll - targetRoll;
         float Pitch_Err = accelPitch - targetPitch;
         float Roll_Err = accelRoll - targetRoll;
 
