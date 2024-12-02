@@ -109,7 +109,7 @@ int readRCChannel(int channel) {
 
         // 요청된 채널 값을 반환
         // usleep(100000); // 0.1초(100ms) 대기
-        usleep(100); // 0.0001초 대기
+        usleep(100); // 0.0001(0.1ms)초 대기
         return channels[channel - 1];
     }
 }
