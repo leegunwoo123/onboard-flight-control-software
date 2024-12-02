@@ -1,17 +1,6 @@
 // #ifndef GPS_SENSOR_H
 // #define GPS_SENSOR_H
 
-// // GPS 초기화 함수
-// void initGPS(const std::string& port, int baudRate);
-
-// // GPS 데이터를 읽는 함수
-// GPSData readGPS();
-
-// #endif
-
-// #ifndef GPS_SENSOR_H
-// #define GPS_SENSOR_H
-
 // #include <string>
 
 // // GPSData 구조체 정의
