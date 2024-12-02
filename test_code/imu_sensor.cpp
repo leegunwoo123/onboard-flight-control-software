@@ -145,13 +145,6 @@ IMUData readIMU() {
                             imuData.gyroX = std::stof(parts[8]);   // X축 자이로스코프
                             imuData.gyroY = std::stof(parts[9]);   // Y축 자이로스코프
                             imuData.gyroZ = std::stof(parts[10]);  // Z축 자이로스코프
-
-                            // 타임스탬프 계산
-                            struct timeval current_time;
-                            gettimeofday(&current_time, NULL);  // 현재 시간 가져오기
-                            imuData.timestamp = (current_time.tv_sec * 1000.0) + (current_time.tv_usec / 1000.0);  // 밀리초 단위 타임스탬프 계산
-                            imuData.elapsed_time = imuData.timestamp - previous_timestamp;  // 경과 시간 계산
-                            previous_timestamp = imuData.timestamp;  // 이전 타임스탬프 갱신
                         } else {
                             fprintf(stderr, "CRC mismatch: Received: %04X, Calculated: %04X\n", received_crc, calculated_crc); // CRC 불일치 에러 메시지 출력
                         }
