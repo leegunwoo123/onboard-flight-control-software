@@ -73,7 +73,7 @@ int main() {
                 channels[i] = (sbus_data[1 + i * 2] << 8) | sbus_data[2 + i * 2];
             }
 
-            // Print channels 1 to 5 on the same line, updating in place
+            // 채널 1~5를 같은 줄에 print하여 제자리에서 업데이트
             std::cout << "\r";
             for (int i = 0; i < 5; i++) {
                 std::cout << "Channel " << (i + 1) << ": " << std::setw(4) << channels[i] << " ";
