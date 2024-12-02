@@ -309,11 +309,6 @@ int main() {
         float accelRoll = atan2(correctedAccelY, correctedAccelZ) * 180 / M_PI;
         float accelPitch = atan2(-correctedAccelX, sqrt(correctedAccelY * correctedAccelY + correctedAccelZ * correctedAccelZ)) * 180 / M_PI;
 
-        // // MPU6050의 PID 필터링 로직을 구현 (Complementary Filter)
-        // float alpha = 0.9996f;
-        // currentRoll = alpha * (currentRoll + correctedGyroX * dt) + (1.0f - alpha) * accelRoll;
-        // currentPitch = alpha * (currentPitch + correctedGyroY * dt) + (1.0f - alpha) * accelPitch;
-
         // Yaw PID 컨트롤러에 보정된 자이로스코프 데이터 사용
         float yaw_err = (rudder_normalized * 1500.0f) - correctedGyroZ; // Assuming rudder_normalized maps to desired yaw rate
         Yaw_Rate_PID = yawPID.calculate(rudder_normalized * 1500.0f, correctedGyroZ, dt);
