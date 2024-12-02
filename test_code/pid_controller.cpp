@@ -25,7 +25,7 @@ const int RC_MID = 991;
 const int PWM_MIN = 210;
 const int PWM_MAX = 405;
 const int MAX_ADJUSTMENT = 15; // 각 제어 입력의 최대 PWM 조정 값
-const int I2C_RETRY_LIMIT = 5; // I2C 오류 시 재시도 횟수
+const int I2C_RETRY_LIMIT = 3; // I2C 오류 시 재시도 횟수
 const int SAFE_PWM = PWM_MIN;  // 초기화 및 안전한 PWM 값
 const int LOOP_DELAY_US = 26000; // 주기적인 대기 시간 (10ms)
 const float MAX_ANGLE = 90.0f;           // 최대 각도 (예시)
@@ -137,21 +137,62 @@ private:
     }
 };
 
+// struct PIDController {
+//     float kp, ki, kd;             // PID 게인
+//     float prev_error;             // 이전 오차값 (미분 항 계산용)
+//     float integral;               // 적분값
+//     float integral_limit;         // 적분값 제한
+//     float output_limit;           // 출력값 제한
+//     float feedforward;            // 피드포워드 게인
+
+//     PIDController(float p, float i, float d, float ff = 0.0f, float i_limit = 10.0f, float out_limit = 400.0f)
+//         : kp(p), ki(i), kd(d), feedforward(ff), prev_error(0.0f), integral(0.0f),
+//           integral_limit(i_limit), output_limit(out_limit) {}
+
+//     void reset() {
+//         prev_error = 0.0f;
+//         integral = 0.0f;
+//     }
+
+//     float calculate(float setpoint, float measurement, float dt) {
+//         // 오차 계산
+//         float error = setpoint - measurement;
+
+//         // 적분 항 계산 및 제한
+//         integral += error * dt;
+//         integral = std::clamp(integral, -integral_limit, integral_limit);
+
+//         // 미분 항 계산
+//         float derivative = (error - prev_error) / dt;
+//         prev_error = error;
+
+//         // PID 출력 계산 (피드포워드 포함)
+//         float output = feedforward * setpoint + (kp * error) + (ki * integral) + (kd * derivative);
+
+//         // 출력 제한
+//         return std::clamp(output, -output_limit, output_limit);
+//     }
+// };
+
+
 struct PIDController {
     float kp, ki, kd;             // PID 게인
     float prev_error;             // 이전 오차값 (미분 항 계산용)
     float integral;               // 적분값
     float integral_limit;         // 적분값 제한
     float output_limit;           // 출력값 제한
-    float feedforward;            // 피드포워드 게인
+    float prev_derivative;        // 이전 미분값 (저역 필터 계산용)
+    float alpha;                  // 저역 필터 계수 (0.0 ~ 1.0)
 
-    PIDController(float p, float i, float d, float ff = 0.0f, float i_limit = 10.0f, float out_limit = 400.0f)
-        : kp(p), ki(i), kd(d), feedforward(ff), prev_error(0.0f), integral(0.0f),
-          integral_limit(i_limit), output_limit(out_limit) {}
+    PIDController(float p, float i, float d, float i_limit = 10.0f, 
+                  float out_limit = 400.0f, float filter_alpha = 0.1f)
+        : kp(p), ki(i), kd(d), prev_error(0.0f), integral(0.0f),
+          integral_limit(i_limit), output_limit(out_limit), prev_derivative(0.0f), alpha(filter_alpha) {}
 
     void reset() {
         prev_error = 0.0f;
         integral = 0.0f;
+        prev_derivative = 0.0f;
     }
 
     float calculate(float setpoint, float measurement, float dt) {
@@ -162,18 +203,24 @@ struct PIDController {
         integral += error * dt;
         integral = std::clamp(integral, -integral_limit, integral_limit);
 
-        // 미분 항 계산
-        float derivative = (error - prev_error) / dt;
+        // 미분 항 계산 (저역 필터 적용)
+        float raw_derivative = (error - prev_error) / dt;
+        float filtered_derivative = alpha * raw_derivative + (1 - alpha) * prev_derivative;
+        prev_derivative = filtered_derivative;
+
         prev_error = error;
 
-        // PID 출력 계산 (피드포워드 포함)
-        float output = feedforward * setpoint + (kp * error) + (ki * integral) + (kd * derivative);
+        // PID 출력 계산
+        float p_term = kp * error;
+        float i_term = ki * integral;
+        float d_term = kd * filtered_derivative;
+
+        float output = p_term + i_term + d_term;
 
         // 출력 제한
         return std::clamp(output, -output_limit, output_limit);
     }
 };
-
 // 스로틀 값을 0.0 ~ 1.0 범위로 매핑하는 함수
 double mapThrottle(int value) {
     if (value <= RC_MIN) return 0.0;
@@ -242,7 +289,7 @@ int main() {
     float targetPitch = stlPitch;
 
     // PIDController 초기화 (output_limit을 MAX_ADJUSTMENT로 설정)
-    PIDController rollPID(2.0, 0.2, 0.1, 0.0, 10.0f, MAX_ADJUSTMENT);   // Roll PID
+    PIDController rollPID(3.5, 0.5, 0.2, 0.0, 10.0f, MAX_ADJUSTMENT);   // Roll PID
     PIDController pitchPID(0.5, 0.1, 0.1, 0.0, 10.0f, MAX_ADJUSTMENT);  // Pitch PID
     PIDController yawPID(0.5, 0.0, 0.05, 0.0, 10.0f, MAX_ADJUSTMENT);   // Yaw PID
 
@@ -253,7 +300,7 @@ int main() {
     auto previousTime = std::chrono::steady_clock::now();
 
     while (true) {
-        float dt = 0.01f;
+        float dt = 0.025f;
 
         int throttle_value = readRCChannel(3); // 채널 3에서 스로틀 값 읽기
         int aileron_value = readRCChannel(1);  // 채널 1에서 에일러론 값 읽기
@@ -275,8 +322,8 @@ int main() {
 
         float correctedGyroZ = imuData.gyroZ - offsetGyroZ;
 
-        float accelRoll = atan2(imuData.accelY, imuData.accelZ) * 180 / M_PI;
-        float accelPitch = atan2(-correctedAccelX, sqrt(correctedAccelY * correctedAccelY + correctedAccelZ * correctedAccelZ)) * 180 / M_PI;
+        float accelRoll = atan2(imuData.accelY, imuData.accelZ);
+        float accelPitch = atan2(-correctedAccelX, sqrt(correctedAccelY * correctedAccelY + correctedAccelZ * correctedAccelZ));
       
         // Yaw PID 컨트롤러에 보정된 자이로스코프 데이터 사용
         int yaw_adj = yawPID.calculate(rudder_normalized, correctedGyroZ, dt);
@@ -303,28 +350,22 @@ int main() {
         } else {
 
             // 모터 조정값 계산
-            motor1_adj = throttle_PWM + static_cast<int>((elevator_adj_total + aileron_adj_total) + yaw_adj);
-            motor2_adj = throttle_PWM + static_cast<int>((-elevator_adj_total + aileron_adj_total) - yaw_adj);
-            motor3_adj = throttle_PWM + static_cast<int>((-elevator_adj_total - aileron_adj_total) + yaw_adj);
-            motor4_adj = throttle_PWM + static_cast<int>((elevator_adj_total - aileron_adj_total) - yaw_adj);
-            }
-            // 모터 PWM이 throttle_PWM보다 작을 수 없도록 설정
-            motor1_PWM = std::max(motor1_PWM, throttle_PWM);
-            motor2_PWM = std::max(motor2_PWM, throttle_PWM);
-            motor3_PWM = std::max(motor3_PWM, throttle_PWM);
-            motor4_PWM = std::max(motor4_PWM, throttle_PWM);
+            int motor1_adj = + aileron_adj_total - elevator_adj_total + yaw_adj;
+            int motor2_adj = - aileron_adj_total + elevator_adj_total + yaw_adj;
+            int motor3_adj = - aileron_adj_total - elevator_adj_total - yaw_adj;
+            int motor4_adj = + aileron_adj_total + elevator_adj_total - yaw_adj;
+            
+            // 조정값을 모터 PWM에 적용
+            motor1_PWM = throttle_PWM + motor1_adj;
+            motor2_PWM = throttle_PWM + motor2_adj;
+            motor3_PWM = throttle_PWM + motor3_adj;
+            motor4_PWM = throttle_PWM + motor4_adj;
 
             // 모터 PWM이 유효한 범위 내에 있는지 확인
             motor1_PWM = clamp(motor1_PWM, PWM_MIN, PWM_MAX);
             motor2_PWM = clamp(motor2_PWM, PWM_MIN, PWM_MAX);
             motor3_PWM = clamp(motor3_PWM, PWM_MIN, PWM_MAX);
             motor4_PWM = clamp(motor4_PWM, PWM_MIN, PWM_MAX);
-
-            // 조정값을 모터 PWM에 적용
-            motor1_PWM = throttle_PWM + motor1_adj;
-            motor2_PWM = throttle_PWM + motor2_adj;
-            motor3_PWM = throttle_PWM + motor3_adj;
-            motor4_PWM = throttle_PWM + motor4_adj;
         }
 
         // 모터에 PWM 값 설정
@@ -332,14 +373,14 @@ int main() {
         pca9685.setMotorSpeed(1, motor2_PWM);
         pca9685.setMotorSpeed(2, motor3_PWM);
         pca9685.setMotorSpeed(3, motor4_PWM);
-        // std::cout << "\rThrottle PWM: " << throttle_PWM
-        //           << " Motor1: " << motor1_PWM
-        //           << " Motor2: " << motor2_PWM
-        //           << " Motor3: " << motor3_PWM
-        //           << " Motor4: " << motor4_PWM  <<std::flush;
+        std::cout << "\rThrottle PWM: " << throttle_PWM
+                  << " Motor1: " << motor1_PWM
+                  << " Motor2: " << motor2_PWM
+                  << " Motor3: " << motor3_PWM
+                  << " Motor4: " << motor4_PWM  <<std::flush;
 
-    std::cout << "target roll: " << targetRoll << std::flush;
-    std::cout << "current roll: " << accelRoll << std::flush;          
+        // std::cout << "target roll: " << roll_adj << std::flush;
+        // std::cout << "\rcurrent roll: " << accelRoll << std::flush;          
 
         usleep(LOOP_DELAY_US);
     }
