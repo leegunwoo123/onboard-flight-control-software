@@ -289,10 +289,7 @@ void PoseEstimator::calculatePose() {
 
 // IMU 데이터 처리 함수
 void PoseEstimator::processIMU() {
-    // if (!isGyroCalibrated) {
-    //     calibrateGyro();  // 자이로 캘리브레이션 수행
-    // }
-
+    
     while (running) {
         IMUData imuData = readIMU();  // IMU 센서에서 데이터 읽기
         Eigen::Vector3f newAccel = Eigen::Vector3f(imuData.accelX, imuData.accelY, imuData.accelZ);
