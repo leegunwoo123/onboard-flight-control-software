@@ -1,15 +1,3 @@
-// #ifndef IMU_SENSOR_H
-// #define IMU_SENSOR_H
-
-// // IMU 초기화 함수
-// void initIMU(const std::string& port, int baudRate);
-
-// // IMU 데이터를 읽는 함수
-// IMUData readIMU();
-
-// #endif
-
-
 #ifndef IMU_SENSOR_H
 #define IMU_SENSOR_H
 
