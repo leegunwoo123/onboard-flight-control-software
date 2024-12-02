@@ -1,4 +1,4 @@
-// UART 방식으로 시도
+// UART 방식
 #include <iostream>
 #include <fcntl.h>
 #include <termios.h>
