@@ -186,36 +186,3 @@ Eigen::VectorXf EKF::getState() const {
 
     return stateOut;
 }
-
-// #include <iostream>
-// int main() {
-//     EKF ekf;
-    
-//     // 정지 상태를 시뮬레이션 (중력 외에 가속도 없음)
-//     Eigen::Vector3f accel(0.0f, 0.0f, GRAVITY);  // 가속도 (중력만 적용됨)
-//     Eigen::Vector3f gyro(0.0f, 0.0f, 0.0f);      // 각속도 없음
-    
-//     float dt = 0.1f;  // 100 ms 시간 간격
-    
-//     for (int i = 0; i < 100; ++i) {
-//         ekf.predict(accel, gyro, dt);
-//         Eigen::VectorXf state = ekf.getState();
-//         std::cout << "위치: " << state.segment<3>(0).transpose() 
-//                   << " 속도: " << state.segment<3>(3).transpose() 
-//                   << " 자세 (쿼터니언): " << state(6) << ", " << state.segment<3>(7).transpose() 
-//                   << std::endl;
-//     }
-    
-//     // GPS 업데이트 시뮬레이션
-//     Eigen::Vector3f gpsPos(1.0f, 2.0f, 3.0f);  // 예제 GPS 위치
-//     Eigen::Vector3f gpsVel(0.1f, 0.2f, 0.0f);  // 예제 GPS 속도
-
-//     ekf.updateWithGPS(gpsPos, gpsVel);
-
-//     // 상태 확인
-//     Eigen::VectorXf updatedState = ekf.getState();
-//     std::cout << "GPS 업데이트 후 위치: " << updatedState.segment<3>(0).transpose() 
-//               << " 속도: " << updatedState.segment<3>(3).transpose() << std::endl;
-
-//     return 0;
-// }
