@@ -58,7 +58,7 @@ PoseEstimator::~PoseEstimator() {
 
 // 자이로 캘리브레이션 함수
 void PoseEstimator::calibrateGyro() {
-    int sampleCount = 100;
+    int sampleCount = 50;
     Eigen::Vector3f gyroSum = Eigen::Vector3f::Zero();
     for (int i = 0; i < sampleCount; ++i) {
         IMUData imuData = readIMU();
