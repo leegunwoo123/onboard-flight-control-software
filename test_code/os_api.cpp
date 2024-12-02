@@ -1,0 +1,1 @@
+// 운영 체제에 맞춘 API 호출 코드 (예: POSIX 또는 RTOS용 API)
