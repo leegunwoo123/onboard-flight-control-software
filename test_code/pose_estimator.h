@@ -5,38 +5,6 @@
 // #include <thread>
 // #include <atomic>
 // #include <mutex>
-
-
-// class PoseEstimator {
-// public:
-//     PoseEstimator();
-//     ~PoseEstimator();
-    
-//     Eigen::VectorXf getPose();  // 현재 위치와 자세 값을 반환하는 함수
-    
-// private:
-//     class EKF ekf;  // EKF 객체
-    
-//     std::thread estimationThread;  // 주기적으로 동작하는 쓰레드
-//     std::atomic<bool> running;  // 쓰레드 상태 제어
-    
-//     Eigen::VectorXf currentState;  // 최신 상태 저장 변수
-//     std::mutex poseMutex;  // 상태 보호를 위한 뮤텍스
-    
-//     void calculatePose();  // 상태 계산 함수 (쓰레드 내부에서 실행)
-    
-//     const std::chrono::milliseconds loopDuration = std::chrono::milliseconds(10);  // 10ms 주기
-// };
-
-// #endif
-
-// #ifndef POSE_ESTIMATOR_H
-// #define POSE_ESTIMATOR_H
-
-// #include <Eigen/Dense>
-// #include <thread>
-// #include <atomic>
-// #include <mutex>
 // #include <chrono>
 // #include "ekf.h"  // EKF 클래스 헤더 파일 포함
 // #include "imu_sensor.h"  // IMU 센서 헤더 파일 포함
