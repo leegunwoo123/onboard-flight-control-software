@@ -280,7 +280,7 @@ int main() {
 
     while (true) {
         // 측정된 시간 차이를 계산 (여기서는 고정된 dt를 사용)
-        float dt = 0.0025f; // 2.5ms 대기
+        float dt = 0.01f;
 
         int throttle_value = readRCChannel(3); // 채널 3에서 스로틀 값 읽기
         int aileron_value = readRCChannel(1);  // 채널 1에서 에일러론 값 읽기
