@@ -359,14 +359,6 @@ int main() {
         // Yaw PID Control using only gyro
         float yaw_adj = Yaw_Rate_PID;
 
-        // 조건에 따라 조정값을 0으로 설정 (데드 밴드)
-        // if (fabs(currentRoll - targetRoll) < TOLERANCE_ROLL) {
-        //     Roll_Rate_PID = 0.0f;
-        // }
-
-        // if (fabs(currentPitch - targetPitch) < TOLERANCE_PITCH) {
-        //     Pitch_Rate_PID = 0.0f;
-        // }
         if (fabs(accelRoll - targetRoll) < TOLERANCE_ROLL) {
             Roll_Rate_PID = 0.0f;
         }
