@@ -73,12 +73,6 @@ std::array<float, 4> controlAttitude(float dt) {
     float pwm_motor3 = throttle_out - roll_output - pitch_output + yaw_output;  // 모터 3 (CCW)
     float pwm_motor4 = throttle_out + roll_output - pitch_output - yaw_output;  // 모터 4 (CW)
 
-    // std::cerr << "Motor PWM Outputs: "
-    //       << "Motor 1: " << pwm_motor1 << ", "
-    //       << "Motor 2: " << pwm_motor2 << ", "
-    //       << "Motor 3: " << pwm_motor3 << ", "
-    //       << "Motor 4: " << pwm_motor4 << std::endl;
-
     // PWM 값 제한
     pwm_motor1 = fmaxf(fminf(pwm_motor1, PWM_MAX), PWM_MIN);
     pwm_motor2 = fmaxf(fminf(pwm_motor2, PWM_MAX), PWM_MIN);
