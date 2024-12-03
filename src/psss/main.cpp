@@ -3,7 +3,7 @@
 #include "flight_control.h"
 #include <thread>
 #include <iostream>
-#include <fstream>  // 파일 입출력을 위한 헤더
+#include <fstream>
 #include <iomanip>  // std::setprecision을 사용하기 위한 헤더
 
 int main() {
