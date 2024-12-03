@@ -137,44 +137,6 @@ private:
     }
 };
 
-// struct PIDController {
-//     float kp, ki, kd;             // PID 게인
-//     float prev_error;             // 이전 오차값 (미분 항 계산용)
-//     float integral;               // 적분값
-//     float integral_limit;         // 적분값 제한
-//     float output_limit;           // 출력값 제한
-//     float feedforward;            // 피드포워드 게인
-
-//     PIDController(float p, float i, float d, float ff = 0.0f, float i_limit = 10.0f, float out_limit = 400.0f)
-//         : kp(p), ki(i), kd(d), feedforward(ff), prev_error(0.0f), integral(0.0f),
-//           integral_limit(i_limit), output_limit(out_limit) {}
-
-//     void reset() {
-//         prev_error = 0.0f;
-//         integral = 0.0f;
-//     }
-
-//     float calculate(float setpoint, float measurement, float dt) {
-//         // 오차 계산
-//         float error = setpoint - measurement;
-
-//         // 적분 항 계산 및 제한
-//         integral += error * dt;
-//         integral = std::clamp(integral, -integral_limit, integral_limit);
-
-//         // 미분 항 계산
-//         float derivative = (error - prev_error) / dt;
-//         prev_error = error;
-
-//         // PID 출력 계산 (피드포워드 포함)
-//         float output = feedforward * setpoint + (kp * error) + (ki * integral) + (kd * derivative);
-
-//         // 출력 제한
-//         return std::clamp(output, -output_limit, output_limit);
-//     }
-// };
-
-
 struct PIDController {
     float kp, ki, kd;             // PID 게인
     float prev_error;             // 이전 오차값 (미분 항 계산용)
