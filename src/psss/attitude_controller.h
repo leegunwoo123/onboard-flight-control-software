@@ -3,7 +3,6 @@
 
 #include <Eigen/Dense>
 
-// PID 제어기 클래스 정의
 class PIDController {
 public:
     PIDController(float kp, float ki, float kd)
@@ -22,7 +21,6 @@ private:
     float _prev_error, _integral;
 };
 
-// 자세 제어 함수 선언
 void controlAttitude(const Eigen::VectorXf& currentState, const RCInput& rcInput, float dt);
 
 #endif
