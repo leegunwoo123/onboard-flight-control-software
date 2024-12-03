@@ -4,7 +4,7 @@
 #include <sys/ioctl.h>
 #include <linux/i2c-dev.h>
 #include <cstdint>
-#include <cmath>               // 수학 함수 사용 (atan2, sqrt, M_PI)
+#include <cmath>               
 #include <Eigen/Dense>         // Eigen 라이브러리
 #include "rc_input.h"          // RC 입력 헤더 파일
 #include "imu_sensor.h"        // IMU 센서 헤더 포함
