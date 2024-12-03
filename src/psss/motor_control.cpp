@@ -4,7 +4,7 @@
 #include <sys/ioctl.h>
 #include <linux/i2c-dev.h>
 #include <cstdint>
-#include "../ioss/rc_input.h"  // RC 입력 헤더 파일
+#include "../ioss/rc_input.h"
 #include "motor_control.h"
 #include <termios.h>           // B115200 설정
 
