@@ -26,4 +26,4 @@ private:
     void stopAllMotors();
 };
 
-#endif // MOTOR_CONTROL_H
+#endif
