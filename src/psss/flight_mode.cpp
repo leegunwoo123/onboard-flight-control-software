@@ -2,7 +2,7 @@
 #include "rc_input.h"
 #include "motor_control.h"
 #include "gps_sensor.h"
-#include "udp_communication.h"  // UDP 통신 관련
+#include "udp_communication.h" 
 #include <Eigen/Dense>
 #include <iostream>
 #include <thread>  
