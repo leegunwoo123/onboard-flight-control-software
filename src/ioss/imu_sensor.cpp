@@ -12,7 +12,7 @@
 #include <stdexcept>
 #include <csignal>
 
-#define BUFFER_SIZE 128    // 버퍼 크기를 128로 설정
+#define BUFFER_SIZE 128    
 #define COMMAND_SIZE 100   // 명령어 크기 정의
 #define CRC_SIZE 4         // CRC 크기 정의
 
