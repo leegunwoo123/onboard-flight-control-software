@@ -28,7 +28,7 @@ const float offsetZ = -9.73542f;
 const float MAX_TARGET_ANGLE = 30.0f;  // 최대 목표 각도 (롤, 피치)
 
 std::array<float, 4> controlAttitude(float dt) {
-    if (dt < 0.001f) {
+    if (dt < 0.0001f) {
         std::cout << "false" << std::endl;
         return {PWM_MIN, PWM_MIN, PWM_MIN, PWM_MIN};  // dt가 너무 작을 경우 안전한 최소값 반환
     }
