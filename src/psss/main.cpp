@@ -4,7 +4,7 @@
 #include <thread>
 #include <iostream>
 #include <fstream>
-#include <iomanip>  // std::setprecision을 사용하기 위한 헤더
+#include <iomanip>
 
 int main() {
     // 루프 실행 주기 설정 (100ms)
