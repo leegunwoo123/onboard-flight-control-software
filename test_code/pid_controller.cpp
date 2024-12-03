@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <cmath>               
 #include <Eigen/Dense>         
-#include "rc_input.h"          // RC 입력 헤더 파일
+#include "rc_input.h"          
 #include "imu_sensor.h"        // IMU 센서 헤더 포함
 #include "imu_calibration.h"   // IMU 캘리브레이션 헤더 파일
 #include <termios.h>           // B115200 설정
