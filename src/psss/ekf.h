@@ -31,4 +31,4 @@ private:
     Eigen::Vector3f lowPassFilter(const Eigen::Vector3f& input, const Eigen::Vector3f& last, float alpha);
 };
 
-#endif // EKF_H
+#endif
