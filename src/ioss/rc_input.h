@@ -9,4 +9,4 @@ void initRC(const std::string& port, int baudRate);
 // RC 데이터를 읽는 함수
 int readRCChannel(int channel);
 
-#endif // RC_INPUT_H
+#endif
