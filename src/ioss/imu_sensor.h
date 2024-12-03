@@ -2,7 +2,7 @@
 #define IMU_SENSOR_H
 
 #include <string>   
-#include <signal.h> // sig_atomic_t를 사용하기 위해 추가
+#include <signal.h> 
 
 // IMU 데이터를 저장하는 구조체
 struct IMUData {
