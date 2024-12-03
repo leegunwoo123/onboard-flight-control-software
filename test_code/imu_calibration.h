@@ -1,4 +1,3 @@
-// imu_calibration.h
 #ifndef IMU_CALIBRATION_H
 #define IMU_CALIBRATION_H
 
@@ -27,4 +26,4 @@ struct IMUCalibrationData {
 
 IMUCalibrationData calibrateIMU();
 
-#endif // IMU_CALIBRATION_H
+#endif
