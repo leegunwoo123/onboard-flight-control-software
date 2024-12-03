@@ -22,4 +22,4 @@ struct IMUData {
 void initIMU(const std::string& port, int baudRate);
 IMUData readIMU();
 
-#endif // IMU_SENSOR_H
+#endif
