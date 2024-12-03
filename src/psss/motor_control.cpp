@@ -6,7 +6,7 @@
 #include <cstdint>
 #include "../ioss/rc_input.h"
 #include "motor_control.h"
-#include <termios.h>           // B115200 설정
+#include <termios.h>
 
 #define PCA9685_ADDR 0x40  // PCA9685 I2C 주소
 #define MODE1 0x00         // 모드1 레지스터
