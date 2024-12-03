@@ -13,11 +13,11 @@ void flight_control_init() {
 
     // GPS 초기화
     std::cout << "Initializing GPS..." << std::endl;
-    initGPS("/dev/ttyUSB1", B115200);  // GPS 포트 및 보드레이트 설정
+    initGPS("/dev/ttyUSB1", B115200);
 
     // IMU 초기화
     std::cout << "Initializing IMU..." << std::endl;
-    initIMU("/dev/ttyUSB0", B115200);  // IMU 포트 및 보드레이트 설정
+    initIMU("/dev/ttyUSB0", B115200);
 
     std::cout << "Flight control system initialized." << std::endl;
 }
