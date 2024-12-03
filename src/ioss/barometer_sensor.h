@@ -16,4 +16,4 @@ void initBarometer(const std::string& port, int baudRate);
 // 기압 데이터를 읽는 함수
 BarometerData readBarometer();
 
-#endif // BAROMETER_SENSOR_H
+#endif
