@@ -11,7 +11,7 @@
 #include "imu_calibration.h"   
 #include <termios.h>           
 #include <algorithm>           
-#include <chrono>              // 시간 측정을 위한 라이브러리
+#include <chrono>              
 
 #define PCA9685_ADDR 0x40      // PCA9685 I2C 주소
 #define MODE1 0x00             // 모드1 레지스터
