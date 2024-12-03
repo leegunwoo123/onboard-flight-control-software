@@ -11,4 +11,4 @@ int readRCChannel(int channel);
 double mapThrottle(int value);
 double mapControlInput(int value);
 
-#endif // RC_INPUT_H
+#endif
