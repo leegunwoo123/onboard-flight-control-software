@@ -335,11 +335,6 @@ int main() {
             motor2_PWM = throttle_PWM + motor2_adj;
             motor3_PWM = throttle_PWM + motor3_adj;
             motor4_PWM = throttle_PWM + motor4_adj;
-            // std::cout << "\rThrottle PWM: " << throttle_PWM
-            //           << " Motor1: " << motor1_PWM
-            //           << " Motor2: " << motor2_PWM
-            //           << " Motor3: " << motor3_PWM
-            //           << " Motor4: " << motor4_PWM << "roll: " << roll_adj <<std::flush;
 
             // 모터 PWM이 유효한 범위 내에 있는지 확인
             motor1_PWM = clamp(motor1_PWM, PWM_MIN, PWM_MAX);
