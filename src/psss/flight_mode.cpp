@@ -5,7 +5,7 @@
 #include "udp_communication.h"  // UDP 통신 관련
 #include <Eigen/Dense>
 #include <iostream>
-#include <thread>  // std::this_thread::sleep_for
+#include <thread>  
 #include <chrono>  // std::chrono::milliseconds
 
 // 수동 비행 모드
