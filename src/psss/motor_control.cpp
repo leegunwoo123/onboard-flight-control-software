@@ -220,12 +220,6 @@ int main() {
     return 0;
 }
 
-
-// // PWM 시작점 확인 코드
-// const int PWM_MIN_TEST = 400;  // 테스트 시작점 (기존 최소 PWM 값)
-// const int PWM_MAX_TEST = 430;  // 테스트 범위
-// const int TEST_STEP = 5;       // PWM 값 증가 단계
-
 // int main() {
 //     PCA9685 pca9685;  // PCA9685 초기화
 //     int pwm_value = PWM_MIN_TEST;
