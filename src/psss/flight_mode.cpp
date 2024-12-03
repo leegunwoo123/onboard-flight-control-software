@@ -6,7 +6,7 @@
 #include <Eigen/Dense>
 #include <iostream>
 #include <thread>  
-#include <chrono>  // std::chrono::milliseconds
+#include <chrono>  
 
 // 수동 비행 모드
 void manualFlight(Eigen::VectorXf& state) {
