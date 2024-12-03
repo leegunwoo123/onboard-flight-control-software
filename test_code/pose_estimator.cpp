@@ -140,6 +140,7 @@ void PoseEstimator::processGPS() {
             gpsPos = newPos;  // 새로운 유효한 GPS 데이터로 업데이트
             gpsVel = newVel;
         }
+        // 테스트를 위한 GPS 데이터 생성
         // gpsPos = Eigen::Vector3f::Zero();
         // gpsVel = Eigen::Vector3f::Zero();
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
