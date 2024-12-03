@@ -3,8 +3,8 @@
 #include "flight_control.h"
 #include <thread>
 #include <iostream>
-#include <fstream>  // 파일 입출력을 위한 헤더
-#include <iomanip>  // std::setprecision을 사용하기 위한 헤더
+#include <fstream>  
+#include <iomanip>
 
 int main() {
     // 루프 실행 주기 설정 (100ms)
