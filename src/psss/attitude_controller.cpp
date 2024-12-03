@@ -1,4 +1,3 @@
-// attitude_controller.cpp
 #include "attitude_controller.h"
 #include "motor_control.h"  // 모터 제어 헤더 포함
 #include "pose_estimator.h"
