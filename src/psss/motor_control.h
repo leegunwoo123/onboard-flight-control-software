@@ -21,4 +21,4 @@ int mapChannelValueToPWM(int value);
 // 0~3번 채널의 모터를 제어하는 함수
 void controlMotors();
 
-#endif // MOTERCONTROL_H
+#endif
