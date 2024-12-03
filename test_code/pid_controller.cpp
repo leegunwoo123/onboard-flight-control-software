@@ -183,6 +183,7 @@ struct PIDController {
         return std::clamp(output, -output_limit, output_limit);
     }
 };
+
 // 스로틀 값을 0.0 ~ 1.0 범위로 매핑하는 함수
 double mapThrottle(int value) {
     if (value <= RC_MIN) return 0.0;
@@ -275,7 +276,7 @@ int main() {
         double rudder_normalized = mapControlInput(rudder_value);
 
         // IMU 데이터 읽기
-        IMUData imuData = readIMU();  // IMU 데이터를 읽어서 imuData에 저장
+        IMUData imuData = readIMU();
 
         // 가속도계 데이터 보정
         float correctedAccelX = imuData.accelX - offsetX;
