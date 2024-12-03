@@ -129,7 +129,6 @@ void PoseEstimator::processIMU() {
 // GPS 데이터 처리 함수
 void PoseEstimator::processGPS() {
     while (running) {
-        // 기존의 GPS 데이터 읽기 부분을 주석 처리합니다.
         GPSData gpsData = readGPS();
         Eigen::Vector3f newPos = Eigen::Vector3f(gpsData.latitude / 1e7, gpsData.longitude / 1e7, gpsData.altitude / 1000.0f);
         Eigen::Vector3f newVel = Eigen::Vector3f(gpsData.velocityX, gpsData.velocityY, gpsData.velocityZ);
