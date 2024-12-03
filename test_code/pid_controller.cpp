@@ -10,7 +10,7 @@
 #include "imu_sensor.h"        
 #include "imu_calibration.h"   
 #include <termios.h>           
-#include <algorithm>           // std::clamp 함수 사용
+#include <algorithm>           
 #include <chrono>              // 시간 측정을 위한 라이브러리
 
 #define PCA9685_ADDR 0x40      // PCA9685 I2C 주소
