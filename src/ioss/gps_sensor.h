@@ -2,7 +2,7 @@
 #define GPS_SENSOR_H
 
 #include <string>
-#include <cstdint> // int64_t를 사용하기 위한 헤더
+#include <cstdint>
 
 // GPSData 구조체 정의
 struct GPSData {
