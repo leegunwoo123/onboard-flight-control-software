@@ -340,10 +340,7 @@ int main() {
                   << " Motor1: " << motor1_PWM
                   << " Motor2: " << motor2_PWM
                   << " Motor3: " << motor3_PWM
-                  << " Motor4: " << motor4_PWM  <<std::flush;
-
-        // std::cout << "target roll: " << roll_adj << std::flush;
-        // std::cout << "\rcurrent roll: " << accelRoll << std::flush;          
+                  << " Motor4: " << motor4_PWM  <<std::flush;       
 
         usleep(LOOP_DELAY_US);
     }
