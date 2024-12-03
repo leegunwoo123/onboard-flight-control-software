@@ -8,7 +8,7 @@
 #include <Eigen/Dense>         
 #include "rc_input.h"          
 #include "imu_sensor.h"        
-#include "imu_calibration.h"   // IMU 캘리브레이션 헤더 파일
+#include "imu_calibration.h"   
 #include <termios.h>           // B115200 설정
 #include <algorithm>           // std::clamp 함수 사용
 #include <chrono>              // 시간 측정을 위한 라이브러리
