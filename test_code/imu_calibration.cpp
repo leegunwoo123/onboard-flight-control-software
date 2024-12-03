@@ -2,13 +2,13 @@
 #include "imu_sensor.h"
 #include <iostream>
 #include <vector>
-#include <numeric>  // accumulate 사용을 위한 헤더 추가
-#include <unistd.h> // usleep 사용을 위한 헤더 추가
-#include <termios.h> // B115200 정의를 위한 헤더 추가
-#include <chrono> // 시간 측정을 위한 헤더 추가
+#include <numeric>  
+#include <unistd.h> 
+#include <termios.h> 
+#include <chrono> 
 #include <thread>
-#include <cmath>        // 수학 함수 및 상수 사용
-#define _USE_MATH_DEFINES  // M_PI 상수를 활성화
+#include <cmath>        
+#define _USE_MATH_DEFINES  
 
 IMUCalibrationData calibrateIMU() {
     initIMU("/dev/ttyUSB0", B115200);
