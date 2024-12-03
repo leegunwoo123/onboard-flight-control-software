@@ -219,23 +219,3 @@ int main() {
 
     return 0;
 }
-
-// int main() {
-//     PCA9685 pca9685;  // PCA9685 초기화
-//     int pwm_value = PWM_MIN_TEST;
-
-//     std::cout << "Testing motor PWM range...\n";
-//     while (pwm_value <= PWM_MAX_TEST) {
-//         pca9685.setMotorSpeed(0, pwm_value);  // 0번 모터에 PWM 값 설정
-//         std::cout << "PWM: " << pwm_value << std::endl;
-        
-//         sleep(1);  // 1초 대기 후 다음 PWM 값으로 증가
-//         pwm_value += TEST_STEP;
-//     }
-
-//     // 테스트 종료 후 모든 모터를 최소 PWM 값으로 설정하여 정지
-//     pca9685.setMotorSpeed(0, PWM_MIN_TEST);
-//     std::cout << "Test completed.\n";
-
-//     return 0;
-// }
