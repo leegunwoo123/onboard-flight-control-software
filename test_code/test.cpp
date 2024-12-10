@@ -370,7 +370,63 @@ void *controlLoop(void *arg) {
 
     //     // std::this_thread::sleep_for(std::chrono::milliseconds(25)); 
     //         }
-        
+    while (true) {
+        // 현재 시간 계산
+        auto imuStartTime = std::chrono::steady_clock::now();
+
+        // IMU 데이터 읽기
+        IMUData imuData = readIMU();
+
+        // 현재 시간과 IMU 시작 시간의 경과 시간 측정
+        auto imuEndTime = std::chrono::steady_clock::now();
+        std::chrono::duration<float> imuElapsed = imuEndTime - imuStartTime;
+        float dt = imuElapsed.count(); // dt는 초 단위
+
+        // IMU 데이터 보정
+        float correctedGyroZ = imuData.gyroZ - offsetGyroZ; // 보정된 자이로 Z값
+
+        // PID 계산 (RC 입력 대신 IMU 자세값 기반으로)
+        int roll_adj = rollPID.calculate(roll_com, imuData.roll_angle, dt);
+        int pitch_adj = pitchPID.calculate(pitch_com, imuData.pitch_angle, dt);
+        int yaw_adj = yawPID.calculate(yaw_com, correctedGyroZ, dt);
+
+        // 각 모터에 대한 보정값 적용
+        int motor1_adj = roll_adj - pitch_adj + yaw_adj;
+        int motor2_adj = -roll_adj - pitch_adj - yaw_adj;
+        int motor3_adj = -roll_adj + pitch_adj + yaw_adj;
+        int motor4_adj = roll_adj + pitch_adj - yaw_adj;
+
+        // PWM 값 계산 (자세 유지용)
+        int motor1_PWM = PWM_MIN + motor1_adj;
+        int motor2_PWM = PWM_MIN + motor2_adj;
+        int motor3_PWM = PWM_MIN + motor3_adj;
+        int motor4_PWM = PWM_MIN + motor4_adj;
+
+        // PWM 값 범위 제한
+        motor1_PWM = clamp(motor1_PWM, PWM_MIN, PWM_MAX);
+        motor2_PWM = clamp(motor2_PWM, PWM_MIN, PWM_MAX);
+        motor3_PWM = clamp(motor3_PWM, PWM_MIN, PWM_MAX);
+        motor4_PWM = clamp(motor4_PWM, PWM_MIN, PWM_MAX);
+
+        // 모터에 PWM 값 설정
+        pca9685.setMotorSpeed(0, motor1_PWM);
+        pca9685.setMotorSpeed(1, motor2_PWM);
+        pca9685.setMotorSpeed(2, motor3_PWM);
+        pca9685.setMotorSpeed(3, motor4_PWM);
+
+        // 디버깅 출력
+        std::cout << "\rAHRS Roll: " << imuData.roll_angle
+                << " AHRS Pitch: " << imuData.pitch_angle
+                << " AHRS Yaw: " << imuData.yaw_angle
+                << " Motor1: " << motor1_PWM
+                << " Motor2: " << motor2_PWM
+                << " Motor3: " << motor3_PWM
+                << " Motor4: " << motor4_PWM
+                << std::flush;
+
+        // 루프 주기 유지 (10Hz, 100ms)
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }       
         return nullptr;
     }
 
