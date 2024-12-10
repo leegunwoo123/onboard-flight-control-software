@@ -252,177 +252,116 @@ void *controlLoop(void *arg) {
     auto previousTime = std::chrono::steady_clock::now();
 
     // // 기존 코드입니다.
-    while (true) {
-        // // 현재 시간 계산
-        // auto currentTime = std::chrono::steady_clock::now();
-        // std::chrono::duration<float> elapsed = currentTime - previousTime;
-        // previousTime = currentTime;
-        // float dt = elapsed.count(); // 초 단위의 경과 시간
-
-        // float dt = 0.025f;
-
-        // IMUData imuData = readIMU();
-
-        // 현재 시간 계산
-        auto imuStartTime = std::chrono::steady_clock::now();
-        // IMU 및 RC 입력 데이터 읽기
-        IMUData imuData = readIMU();  // IMU 데이터를 읽어서 imuData에 저장
-        // 주기 10Hz (100ms)
-        std::chrono::duration<float> loopDuration = std::chrono::milliseconds(100); // 100ms
-
-        // 현재 시간과 IMU 시작 시간의 경과 시간 측정
-        auto imuEndTime = std::chrono::steady_clock::now();
-        std::chrono::duration<float> imuElapsed = imuEndTime - imuStartTime;
-        float dt = imuElapsed.count(); // dt는 초 단위
-        // 실시간으로 dt 값을 출력
-        // std::cout << "\rCurrent dt: " << dt << " seconds" << std::flush;
-
-
-        int throttle_value = readRCChannel(3); // 스로틀 값
-        int aileron_value = readRCChannel(1);  // 에일러론 값
-        int elevator_value = readRCChannel(2); // 엘리베이터 값
-        int rudder_value = readRCChannel(4);   // 러더 값
-
-        // 조종기 입력 값 매핑
-        double throttle_normalized = mapThrottle(throttle_value);
-        double aileron_normalized = mapControlInput(aileron_value);
-        double elevator_normalized = mapControlInput(elevator_value);
-        double rudder_normalized = mapControlInput(rudder_value);
-
-        // IMU 데이터 보정
-        float correctedGyroZ = imuData.gyroZ - offsetGyroZ; // 보정된 자이로 Z값
-
-        // PID 계산
-        int roll_adj = rollPID.calculate(roll_com, imuData.roll_angle, dt);
-        int pitch_adj = pitchPID.calculate(pitch_com, imuData.pitch_angle, dt);
-        int yaw_adj = yawPID.calculate(rudder_normalized, correctedGyroZ, dt);
-
-        // 추가 조정값 계산
-        int aileron_adj_total = computeAdjustment(aileron_normalized) + roll_adj;
-        int elevator_adj_total = computeAdjustment(elevator_normalized) + pitch_adj;
-
-        // 스로틀 PWM 계산
-        int throttle_PWM = computeThrottlePWM(throttle_normalized);
-
-        // 모터 PWM 계산
-        int motor1_PWM, motor2_PWM, motor3_PWM, motor4_PWM;
-        // 각 모터에 대한 보정값 적용
-        int motor1_adj = aileron_adj_total - elevator_adj_total + yaw_adj;
-        int motor2_adj = -aileron_adj_total - elevator_adj_total - yaw_adj;
-        int motor3_adj = -aileron_adj_total + elevator_adj_total + yaw_adj;
-        int motor4_adj = aileron_adj_total + elevator_adj_total - yaw_adj;
-
-        // 최종 모터 PWM 값 계산
-        motor1_PWM = throttle_PWM + motor1_adj;
-        motor2_PWM = throttle_PWM + motor2_adj;
-        motor3_PWM = throttle_PWM + motor3_adj;
-        motor4_PWM = throttle_PWM + motor4_adj;
-
-        if (throttle_PWM <= PWM_MIN) {
-            // 스로틀 값이 최소값 이하일 경우 모든 모터 정지
-            motor1_PWM = PWM_MIN;
-            motor2_PWM = PWM_MIN;
-            motor3_PWM = PWM_MIN;
-            motor4_PWM = PWM_MIN;
-        } else {
-            // 각 모터에 대한 보정값 적용
-            int motor1_adj = aileron_adj_total - elevator_adj_total + yaw_adj;
-            int motor2_adj = -aileron_adj_total - elevator_adj_total - yaw_adj;
-            int motor3_adj = -aileron_adj_total + elevator_adj_total + yaw_adj;
-            int motor4_adj = aileron_adj_total + elevator_adj_total - yaw_adj;
-
-            // 최종 모터 PWM 값 계산
-            motor1_PWM = throttle_PWM + motor1_adj;
-            motor2_PWM = throttle_PWM + motor2_adj;
-            motor3_PWM = throttle_PWM + motor3_adj;
-            motor4_PWM = throttle_PWM + motor4_adj;
-
-            // 모터 PWM이 유효한 범위 내에 있는지 확인
-            motor1_PWM = clamp(motor1_PWM, PWM_MIN, PWM_MAX);
-            motor2_PWM = clamp(motor2_PWM, PWM_MIN, PWM_MAX);
-            motor3_PWM = clamp(motor3_PWM, PWM_MIN, PWM_MAX);
-            motor4_PWM = clamp(motor4_PWM, PWM_MIN, PWM_MAX);
-        }
-
-        // 모터에 PWM 값 설정
-        pca9685.setMotorSpeed(0, motor1_PWM);
-        pca9685.setMotorSpeed(1, motor2_PWM);
-        pca9685.setMotorSpeed(2, motor3_PWM);
-        pca9685.setMotorSpeed(3, motor4_PWM);
-
-        // // 디버깅 출력 (필요 시 주석 해제)
-        // std::cout << "\nAHRS Roll: " << imuData.roll_angle 
-        //           << " AHRS Pitch: " << imuData.pitch_angle 
-        //           << " AHRS Yaw: " << imuData.yaw_angle 
-        //           << " Motor1: " << motor1_PWM
-        //           << " Motor2: " << motor2_PWM
-        //           << " Motor3: " << motor3_PWM
-        //           << " Motor4: " << motor4_PWM
-        //           << std::flush;
-
-        // 디버깅 출력
-        std::cout << "\rAHRS Roll: " << imuData.roll_angle
-                << " AHRS Pitch: " << imuData.pitch_angle
-                << " AHRS Yaw: " << imuData.yaw_angle
-                << " Motor1: " << motor1_PWM
-                << " Motor2: " << motor2_PWM
-                << " Motor3: " << motor3_PWM
-                << " Motor4: " << motor4_PWM
-                << std::flush;
-
-        // std::cout << "\r Roll: " << roll_adj << " Pitch: " << pitch_adj << std::flush;
-
-        // std::this_thread::sleep_for(std::chrono::milliseconds(25)); 
-            }
     // while (true) {
+    //     // // 현재 시간 계산
+    //     // auto currentTime = std::chrono::steady_clock::now();
+    //     // std::chrono::duration<float> elapsed = currentTime - previousTime;
+    //     // previousTime = currentTime;
+    //     // float dt = elapsed.count(); // 초 단위의 경과 시간
+
+    //     // float dt = 0.025f;
+
+    //     // IMUData imuData = readIMU();
+
     //     // 현재 시간 계산
     //     auto imuStartTime = std::chrono::steady_clock::now();
-
-    //     // IMU 데이터 읽기
-    //     IMUData imuData = readIMU();
+    //     // IMU 및 RC 입력 데이터 읽기
+    //     IMUData imuData = readIMU();  // IMU 데이터를 읽어서 imuData에 저장
+    //     // 주기 10Hz (100ms)
+    //     std::chrono::duration<float> loopDuration = std::chrono::milliseconds(100); // 100ms
 
     //     // 현재 시간과 IMU 시작 시간의 경과 시간 측정
     //     auto imuEndTime = std::chrono::steady_clock::now();
     //     std::chrono::duration<float> imuElapsed = imuEndTime - imuStartTime;
     //     float dt = imuElapsed.count(); // dt는 초 단위
+    //     // 실시간으로 dt 값을 출력
+    //     // std::cout << "\rCurrent dt: " << dt << " seconds" << std::flush;
+
+
+    //     int throttle_value = readRCChannel(3); // 스로틀 값
+    //     int aileron_value = readRCChannel(1);  // 에일러론 값
+    //     int elevator_value = readRCChannel(2); // 엘리베이터 값
+    //     int rudder_value = readRCChannel(4);   // 러더 값
+
+    //     // 조종기 입력 값 매핑
+    //     double throttle_normalized = mapThrottle(throttle_value);
+    //     double aileron_normalized = mapControlInput(aileron_value);
+    //     double elevator_normalized = mapControlInput(elevator_value);
+    //     double rudder_normalized = mapControlInput(rudder_value);
 
     //     // IMU 데이터 보정
     //     float correctedGyroZ = imuData.gyroZ - offsetGyroZ; // 보정된 자이로 Z값
 
-    //     // PID 계산 (RC 입력 대신 IMU 자세값 기반으로)
+    //     // PID 계산
     //     int roll_adj = rollPID.calculate(roll_com, imuData.roll_angle, dt);
     //     int pitch_adj = pitchPID.calculate(pitch_com, imuData.pitch_angle, dt);
-    //     int yaw_adj = yawPID.calculate(yaw_com, correctedGyroZ, dt);
+    //     int yaw_adj = yawPID.calculate(rudder_normalized, correctedGyroZ, dt);
 
+    //     // 추가 조정값 계산
+    //     int aileron_adj_total = computeAdjustment(aileron_normalized) + roll_adj;
+    //     int elevator_adj_total = computeAdjustment(elevator_normalized) + pitch_adj;
+
+    //     // 스로틀 PWM 계산
+    //     int throttle_PWM = computeThrottlePWM(throttle_normalized);
+
+    //     // 모터 PWM 계산
+    //     int motor1_PWM, motor2_PWM, motor3_PWM, motor4_PWM;
     //     // 각 모터에 대한 보정값 적용
-    //     int motor1_adj = roll_adj - pitch_adj + yaw_adj;
-    //     int motor2_adj = -roll_adj - pitch_adj - yaw_adj;
-    //     int motor3_adj = -roll_adj + pitch_adj + yaw_adj;
-    //     int motor4_adj = roll_adj + pitch_adj - yaw_adj;
+    //     int motor1_adj = aileron_adj_total - elevator_adj_total + yaw_adj;
+    //     int motor2_adj = -aileron_adj_total - elevator_adj_total - yaw_adj;
+    //     int motor3_adj = -aileron_adj_total + elevator_adj_total + yaw_adj;
+    //     int motor4_adj = aileron_adj_total + elevator_adj_total - yaw_adj;
 
-    //     // PWM 값 계산 (자세 유지용)
-    //     int motor1_PWM = PWM_MIN + motor1_adj;
-    //     int motor2_PWM = PWM_MIN + motor2_adj;
-    //     int motor3_PWM = PWM_MIN + motor3_adj;
-    //     int motor4_PWM = PWM_MIN + motor4_adj;
+    //     // 최종 모터 PWM 값 계산
+    //     motor1_PWM = throttle_PWM + motor1_adj;
+    //     motor2_PWM = throttle_PWM + motor2_adj;
+    //     motor3_PWM = throttle_PWM + motor3_adj;
+    //     motor4_PWM = throttle_PWM + motor4_adj;
 
-    //     // PWM 값 범위 제한
-    //     motor1_PWM = clamp(motor1_PWM, PWM_MIN, PWM_MAX);
-    //     motor2_PWM = clamp(motor2_PWM, PWM_MIN, PWM_MAX);
-    //     motor3_PWM = clamp(motor3_PWM, PWM_MIN, PWM_MAX);
-    //     motor4_PWM = clamp(motor4_PWM, PWM_MIN, PWM_MAX);
+    //     if (throttle_PWM <= PWM_MIN) {
+    //         // 스로틀 값이 최소값 이하일 경우 모든 모터 정지
+    //         motor1_PWM = PWM_MIN;
+    //         motor2_PWM = PWM_MIN;
+    //         motor3_PWM = PWM_MIN;
+    //         motor4_PWM = PWM_MIN;
+    //     } else {
+    //         // 각 모터에 대한 보정값 적용
+    //         int motor1_adj = aileron_adj_total - elevator_adj_total + yaw_adj;
+    //         int motor2_adj = -aileron_adj_total - elevator_adj_total - yaw_adj;
+    //         int motor3_adj = -aileron_adj_total + elevator_adj_total + yaw_adj;
+    //         int motor4_adj = aileron_adj_total + elevator_adj_total - yaw_adj;
+
+    //         // 최종 모터 PWM 값 계산
+    //         motor1_PWM = throttle_PWM + motor1_adj;
+    //         motor2_PWM = throttle_PWM + motor2_adj;
+    //         motor3_PWM = throttle_PWM + motor3_adj;
+    //         motor4_PWM = throttle_PWM + motor4_adj;
+
+    //         // 모터 PWM이 유효한 범위 내에 있는지 확인
+    //         motor1_PWM = clamp(motor1_PWM, PWM_MIN, PWM_MAX);
+    //         motor2_PWM = clamp(motor2_PWM, PWM_MIN, PWM_MAX);
+    //         motor3_PWM = clamp(motor3_PWM, PWM_MIN, PWM_MAX);
+    //         motor4_PWM = clamp(motor4_PWM, PWM_MIN, PWM_MAX);
+    //     }
 
     //     // 모터에 PWM 값 설정
     //     pca9685.setMotorSpeed(0, motor1_PWM);
     //     pca9685.setMotorSpeed(1, motor2_PWM);
     //     pca9685.setMotorSpeed(2, motor3_PWM);
     //     pca9685.setMotorSpeed(3, motor4_PWM);
-     
+
+    //     // // 디버깅 출력 (필요 시 주석 해제)
+    //     // std::cout << "\nAHRS Roll: " << imuData.roll_angle 
+    //     //           << " AHRS Pitch: " << imuData.pitch_angle 
+    //     //           << " AHRS Yaw: " << imuData.yaw_angle 
+    //     //           << " Motor1: " << motor1_PWM
+    //     //           << " Motor2: " << motor2_PWM
+    //     //           << " Motor3: " << motor3_PWM
+    //     //           << " Motor4: " << motor4_PWM
+    //     //           << std::flush;
+
     //     // 디버깅 출력
-    //     std::cout << "\rRoll Adj: " << roll_adj 
-    //             << " Pitch Adj: " << pitch_adj 
-    //             << " Yaw Adj: " << yaw_adj 
-    //             << "AHRS Roll: " << imuData.roll_angle
+    //     std::cout << "\rAHRS Roll: " << imuData.roll_angle
     //             << " AHRS Pitch: " << imuData.pitch_angle
     //             << " AHRS Yaw: " << imuData.yaw_angle
     //             << " Motor1: " << motor1_PWM
@@ -431,9 +370,70 @@ void *controlLoop(void *arg) {
     //             << " Motor4: " << motor4_PWM
     //             << std::flush;
 
-    //     // // 루프 주기 유지 (10Hz, 100ms)
-    //     // std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    // }    
+    //     // std::cout << "\r Roll: " << roll_adj << " Pitch: " << pitch_adj << std::flush;
+
+    //     // std::this_thread::sleep_for(std::chrono::milliseconds(25)); 
+    //         }
+    while (true) {
+        // 현재 시간 계산
+        auto imuStartTime = std::chrono::steady_clock::now();
+
+        // IMU 데이터 읽기
+        IMUData imuData = readIMU();
+
+        // 현재 시간과 IMU 시작 시간의 경과 시간 측정
+        auto imuEndTime = std::chrono::steady_clock::now();
+        std::chrono::duration<float> imuElapsed = imuEndTime - imuStartTime;
+        float dt = imuElapsed.count(); // dt는 초 단위
+
+        // IMU 데이터 보정
+        float correctedGyroZ = imuData.gyroZ - offsetGyroZ; // 보정된 자이로 Z값
+
+        // PID 계산 (RC 입력 대신 IMU 자세값 기반으로)
+        int roll_adj = rollPID.calculate(roll_com, imuData.roll_angle, dt);
+        int pitch_adj = pitchPID.calculate(pitch_com, imuData.pitch_angle, dt);
+        int yaw_adj = yawPID.calculate(yaw_com, correctedGyroZ, dt);
+
+        // 각 모터에 대한 보정값 적용
+        int motor1_adj = roll_adj - pitch_adj + yaw_adj;
+        int motor2_adj = -roll_adj - pitch_adj - yaw_adj;
+        int motor3_adj = -roll_adj + pitch_adj + yaw_adj;
+        int motor4_adj = roll_adj + pitch_adj - yaw_adj;
+
+        // PWM 값 계산 (자세 유지용)
+        int motor1_PWM = PWM_MIN + motor1_adj;
+        int motor2_PWM = PWM_MIN + motor2_adj;
+        int motor3_PWM = PWM_MIN + motor3_adj;
+        int motor4_PWM = PWM_MIN + motor4_adj;
+
+        // PWM 값 범위 제한
+        motor1_PWM = clamp(motor1_PWM, PWM_MIN, PWM_MAX);
+        motor2_PWM = clamp(motor2_PWM, PWM_MIN, PWM_MAX);
+        motor3_PWM = clamp(motor3_PWM, PWM_MIN, PWM_MAX);
+        motor4_PWM = clamp(motor4_PWM, PWM_MIN, PWM_MAX);
+
+        // 모터에 PWM 값 설정
+        pca9685.setMotorSpeed(0, motor1_PWM);
+        pca9685.setMotorSpeed(1, motor2_PWM);
+        pca9685.setMotorSpeed(2, motor3_PWM);
+        pca9685.setMotorSpeed(3, motor4_PWM);
+     
+        // 디버깅 출력
+        std::cout << "\rRoll Adj: " << roll_adj 
+                << " Pitch Adj: " << pitch_adj 
+                << " Yaw Adj: " << yaw_adj 
+                << "AHRS Roll: " << imuData.roll_angle
+                << " AHRS Pitch: " << imuData.pitch_angle
+                << " AHRS Yaw: " << imuData.yaw_angle
+                << " Motor1: " << motor1_PWM
+                << " Motor2: " << motor2_PWM
+                << " Motor3: " << motor3_PWM
+                << " Motor4: " << motor4_PWM
+                << std::flush;
+
+        // // 루프 주기 유지 (10Hz, 100ms)
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }    
         return nullptr;
     }
 
