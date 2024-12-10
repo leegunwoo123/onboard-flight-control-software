@@ -2,16 +2,20 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>          // 메모리 잠금
 #include <linux/i2c-dev.h>
 #include <cstdint>
-#include <cmath>               
-#include <Eigen/Dense>         
-#include "rc_input.h"          
-#include "imu_sensor.h"        
-#include "imu_calibration.h"   
-#include <termios.h>           
-#include <algorithm>           
-#include <chrono>              
+#include <cmath>               // 수학 함수 사용 (atan2, sqrt, M_PI)
+#include <Eigen/Dense>         // Eigen 라이브러리
+#include <pthread.h>           // POSIX 스레드
+#include <time.h>              // 고해상도 타이머
+#include "rc_input.h"          // RC 입력 헤더 파일
+#include "imu_sensor.h"        // IMU 센서 헤더 포함
+#include "imu_calibration.h"   // IMU 캘리브레이션 헤더 파일
+#include <termios.h>           // B115200 설정
+#include <algorithm>           // std::clamp 함수 사용
+#include <chrono>              // 시간 측정을 위한 라이브러리
+#include <thread>
 
 #define PCA9685_ADDR 0x40      // PCA9685 I2C 주소
 #define MODE1 0x00             // 모드1 레지스터
@@ -24,7 +28,7 @@ const int RC_MAX = 1811;
 const int RC_MID = 991;
 const int PWM_MIN = 210;
 const int PWM_MAX = 405;
-const int MAX_ADJUSTMENT = 5; // 각 제어 입력의 최대 PWM 조정 값
+const int MAX_ADJUSTMENT = 25; // 각 제어 입력의 최대 PWM 조정 값
 const int I2C_RETRY_LIMIT = 3; // I2C 오류 시 재시도 횟수
 const int SAFE_PWM = PWM_MIN;  // 초기화 및 안전한 PWM 값
 const int LOOP_DELAY_US = 26000; // 주기적인 대기 시간 (10ms)
@@ -50,7 +54,7 @@ public:
             exit(1);
         }
         reset();
-        setPWMFreq(50);  // 모터 제어를 위해 주파수를 50Hz로 설정
+        setPWMFreq(50);  // Set frequency to 50Hz for motor control
         initializeMotors(); // 모든 모터를 초기 안전 PWM 값으로 설정
     }
 
@@ -138,39 +142,57 @@ private:
 };
 
 struct PIDController {
-    float kp, ki, kd;             // PID 게인
-    float prev_error;             // 이전 오차값 (미분 항 계산용)
-    float integral;               // 적분값
-    float integral_limit;         // 적분값 제한
-    float output_limit;           // 출력값 제한
-    float feedforward;            // 피드포워드 게인
+    float kp, ki, kd;
+    float prev_error;
+    float integral;
+    float integral_limit;
+    float output_limit;
+    float feedforward;
+    float filtered_derivative; // 필터링된 미분 항
 
     PIDController(float p, float i, float d, float ff = 0.0f, float i_limit = 10.0f, float out_limit = 400.0f)
         : kp(p), ki(i), kd(d), feedforward(ff), prev_error(0.0f), integral(0.0f),
-          integral_limit(i_limit), output_limit(out_limit) {}
+          integral_limit(i_limit), output_limit(out_limit), filtered_derivative(0.0f) {}
 
     void reset() {
         prev_error = 0.0f;
         integral = 0.0f;
+        filtered_derivative = 0.0f;
     }
 
     float calculate(float setpoint, float measurement, float dt) {
+        if (dt <= 0.0f) {
+            // dt가 0 이하일 경우, 계산을 중단하거나 기본 값을 반환
+            return 0.0f;
+        }
+
         // 오차 계산
         float error = setpoint - measurement;
 
-        // 적분 항 계산 및 제한
+        // 비례 항 계산
+        float pTerm = kp * error;
+
+        // 적분 항 계산 및 적분 제한 적용
         integral += error * dt;
         integral = std::clamp(integral, -integral_limit, integral_limit);
+        float iTerm = ki * integral;
 
-        // 미분 항 계산
+        // 미분 항 계산 (필터링 적용)
         float derivative = (error - prev_error) / dt;
+        float alpha = 0.1f; // 필터 계수
+        filtered_derivative = alpha * derivative + (1.0f - alpha) * filtered_derivative;
+        float dTerm = kd * filtered_derivative;
+
+        // 이전 오차 업데이트
         prev_error = error;
 
         // PID 출력 계산 (피드포워드 포함)
-        float output = feedforward * setpoint + (kp * error) + (ki * integral) + (kd * derivative);
+        float output = feedforward * setpoint + pTerm + iTerm + dTerm;
 
         // 출력 제한
-        return std::clamp(output, -output_limit, output_limit);
+        output = std::clamp(output, -output_limit, output_limit);
+
+        return output;
     }
 };
 
@@ -203,117 +225,99 @@ int clamp(int value, int min_value, int max_value) {
     return value < min_value ? min_value : (value > max_value ? max_value : value);
 }
 
-int main() {
+// POSIX 스레드 함수 정의
+void *controlLoop(void *arg) {
     PCA9685 pca9685;
-    initRC("/dev/ttyAMA0", B115200);  // RC 입력 초기화
-    initIMU("/dev/ttyUSB0", B115200);  // IMU 초기화
+    // RC 입력 초기화 및 IMU 초기화 (필요 시 수정)
+    initRC("/dev/ttyAMA0", B115200);
+    initIMU("/dev/ttyUSB0", B115200);
 
-    // 캘리브레이션 오프셋 변수 선언
-    float accelX_calibrated = 0.0f, accelY_calibrated = 0.0f, accelZ_calibrated = 0.0f;
-    float gyroX_calibrated = 0.0f, gyroY_calibrated = 0.0f, gyroZ_calibrated = 0.0f;
-    float offsetX = 0.0f, offsetY = 0.0f, offsetZ = 0.0f;
-    float offsetGyroX = 0.0f, offsetGyroY = 0.0f, offsetGyroZ = 0.0f;
-    float roll_acc = 0.0f, pitch_acc = 0.0f;
-    float dt = 0.025f;
+    // 캘리브레이션 및 초기화 (기존 코드와 동일)
+    IMUCalibrationData calibrationData = calibrateIMU();
+    float roll_com = calibrationData.offsetroll;
+    float pitch_com = calibrationData.offsetpitch;
+    float yaw_com = calibrationData.offsetyaw;
 
-    // 새로운 변수 선언 (기존 변수 최대한 사용)
-    float rollRateSetpoint = 0.0f, pitchRateSetpoint = 0.0f;
-    float gyroRoll = 0.0f, gyroPitch = 0.0f;
+    float offsetGyroZ = calibrationData.offsetGyroZ;
 
-    try {
-        // 캘리브레이션 수행
-        IMUCalibrationData calibrationData = calibrateIMU();
+    PIDController rollPID(2.0f, 0.1f, 0.05f);
+    PIDController pitchPID(2.0f, 0.5f, 0.2f);
+    PIDController yawPID(1.2f, 0.5f, 0.5f);
 
-        // 캘리브레이션 완료 후 데이터 출력
-        std::cout << "IMU Calibration offsets are set." << std::endl;
+    // PIDController rollPID(1.5f, 0.05f, 0.03f);  // Roll PID 게인 조정
+    // PIDController pitchPID(1.5f, 0.05f, 0.03f); // Pitch PID 게인 조정
+    // PIDController yawPID(0.8f, 0.1f, 0.05f);    // Yaw PID 게인 조정
 
-        accelX_calibrated = calibrationData.accelX_calibrated;
-        accelY_calibrated = calibrationData.accelY_calibrated;
-        accelZ_calibrated = calibrationData.accelZ_calibrated;
-
-        gyroX_calibrated = calibrationData.gyroX_calibrated;
-        gyroY_calibrated = calibrationData.gyroY_calibrated;
-        gyroZ_calibrated = calibrationData.gyroZ_calibrated;
-
-        roll_acc = calibrationData.roll_acc;
-        pitch_acc = calibrationData.pitch_acc;
-
-        offsetX = calibrationData.offsetX;
-        offsetY = calibrationData.offsetY;
-        offsetZ = calibrationData.offsetZ;
-
-        offsetGyroX = calibrationData.offsetGyroX;
-        offsetGyroY = calibrationData.offsetGyroY;
-        offsetGyroZ = calibrationData.offsetGyroZ;
-
-    } catch (const std::exception &e) {
-        std::cerr << "Error during calibration: " << e.what() << std::endl;
-        return -1;
-    }
-
-    float targetRoll = roll_acc;  // 수평 상태를 목표로 함
-    float targetPitch = pitch_acc; // 수평 상태를 목표로 함
-
-    // 외부 루프 PIDController 초기화 (각도 제어)
-    PIDController rollAnglePID(4.5f, 0.0f, 0.0f, 0.0f, 10.0f, 200.0f);
-    PIDController pitchAnglePID(4.5f, 0.0f, 0.0f, 0.0f, 10.0f, 200.0f);
-
-    // 내부 루프 PIDController 초기화 (각속도 제어)
-    PIDController rollRatePID(0.15f, 0.0f, 0.05f, 0.0f, 10.0f, MAX_ADJUSTMENT);
-    PIDController pitchRatePID(0.15f, 0.0f, 0.05f, 0.0f, 10.0f, MAX_ADJUSTMENT);
-
-    // Yaw PIDController (기존 그대로 사용)
-    PIDController yawPID(1.2f, 0.0f, 0.0f, 0.0f, 10.0f, MAX_ADJUSTMENT);
-
-    // 루프 주기 시간 측정을 위한 변수
+    // 루프 타이밍을 위한 변수 초기화
     auto previousTime = std::chrono::steady_clock::now();
 
+    // // 기존 코드입니다.
     while (true) {
+        // // 현재 시간 계산
+        // auto currentTime = std::chrono::steady_clock::now();
+        // std::chrono::duration<float> elapsed = currentTime - previousTime;
+        // previousTime = currentTime;
+        // float dt = elapsed.count(); // 초 단위의 경과 시간
 
-        int throttle_value = readRCChannel(3); // 채널 3에서 스로틀 값 읽기
-        int aileron_value = readRCChannel(1);  // 채널 1에서 에일러론 값 읽기
-        int elevator_value = readRCChannel(2); // 채널 2에서 엘리베이터 값 읽기
-        int rudder_value = readRCChannel(4);   // 채널 4에서 러더 값 읽기
+        // float dt = 0.025f;
 
+        // IMUData imuData = readIMU();
+
+        // 현재 시간 계산
+        auto imuStartTime = std::chrono::steady_clock::now();
+        // IMU 및 RC 입력 데이터 읽기
+        IMUData imuData = readIMU();  // IMU 데이터를 읽어서 imuData에 저장
+        // 주기 10Hz (100ms)
+        std::chrono::duration<float> loopDuration = std::chrono::milliseconds(100); // 100ms
+
+        // 현재 시간과 IMU 시작 시간의 경과 시간 측정
+        auto imuEndTime = std::chrono::steady_clock::now();
+        std::chrono::duration<float> imuElapsed = imuEndTime - imuStartTime;
+        float dt = imuElapsed.count(); // dt는 초 단위
+        // 실시간으로 dt 값을 출력
+        // std::cout << "\rCurrent dt: " << dt << " seconds" << std::flush;
+
+
+        int throttle_value = readRCChannel(3); // 스로틀 값
+        int aileron_value = readRCChannel(1);  // 에일러론 값
+        int elevator_value = readRCChannel(2); // 엘리베이터 값
+        int rudder_value = readRCChannel(4);   // 러더 값
+
+        // 조종기 입력 값 매핑
         double throttle_normalized = mapThrottle(throttle_value);
         double aileron_normalized = mapControlInput(aileron_value);
         double elevator_normalized = mapControlInput(elevator_value);
         double rudder_normalized = mapControlInput(rudder_value);
 
-        // 목표 각도 설정 (조종기 입력에 따라)
-        targetRoll = aileron_normalized * 20.0f;   // 최대 ±20도
-        targetPitch = elevator_normalized * 20.0f; // 최대 ±20도
+        // IMU 데이터 보정
+        float correctedGyroZ = imuData.gyroZ - offsetGyroZ; // 보정된 자이로 Z값
 
-        // IMU 데이터 읽기
-        IMUData imuData = readIMU();  // IMU 데이터를 읽어서 imuData에 저장
+        // PID 계산
+        // int roll_adj = rollPID.calculate(roll_com, imuData.roll_angle, dt);
+        // int pitch_adj = pitchPID.calculate(pitch_com, imuData.pitch_angle, dt);
 
-        // 가속도계를 이용한 Roll과 Pitch 계산
-        float roll_acc = atan2(imuData.accelY, imuData.accelZ) * 180.0f / M_PI;
-        float pitch_acc = atan2(-imuData.accelX, sqrt(imuData.accelY * imuData.accelY + imuData.accelZ * imuData.accelZ)) * 180.0f / M_PI;
+        int roll_adj = 0;
+        int pitch_adj = 0;
+        int yaw_adj = 0;
 
-        // 자이로스코프 데이터를 각속도로 사용 (deg/s)
-        gyroRoll = imuData.gyroX - offsetGyroX;
-        gyroPitch = imuData.gyroY - offsetGyroY;
-        float gyroYaw = imuData.gyroZ - offsetGyroZ;
+        // PID 계산 (허용 오차 적용)
+        if (std::abs(roll_com - imuData.roll_angle) > TOLERANCE_ROLL) {
+            roll_adj = rollPID.calculate(roll_com, imuData.roll_angle, dt);
+        }
 
-        // 외부 루프 PID 계산 (각도 제어) - 각도 에러로부터 목표 각속도 생성
-        float rollAngleError = targetRoll - roll_acc;
-        float pitchAngleError = targetPitch - pitch_acc;
+        if (std::abs(pitch_com - imuData.pitch_angle) > TOLERANCE_PITCH) {
+            pitch_adj = pitchPID.calculate(pitch_com, imuData.pitch_angle, dt);
+        }
+        // int yaw_adj = yawPID.calculate(rudder_normalized, correctedGyroZ, dt);
 
-        // 외부 루프에서의 PID 출력은 목표 각속도 (deg/s)
-        rollRateSetpoint = rollAnglePID.calculate(targetRoll, roll_acc, dt);
-        pitchRateSetpoint = pitchAnglePID.calculate(targetPitch, pitch_acc, dt);
+        // 추가 조정값 계산
+        int aileron_adj_total = computeAdjustment(aileron_normalized) + roll_adj;
+        int elevator_adj_total = computeAdjustment(elevator_normalized) + pitch_adj;
 
-        // 내부 루프 PID 계산 (각속도 제어)
-        int roll_adj = rollRatePID.calculate(rollRateSetpoint, gyroRoll, dt);
-        int pitch_adj = pitchRatePID.calculate(pitchRateSetpoint, gyroPitch, dt);
-
-        // Yaw PID 컨트롤러 계산 (자이로스코프 데이터 사용)
-        int yaw_adj = yawPID.calculate(rudder_normalized * 50.0f, gyroYaw, dt);
-
-        // 총 조정값 계산 (기존 computeAdjustment 함수 제거)
+        // 스로틀 PWM 계산
         int throttle_PWM = computeThrottlePWM(throttle_normalized);
 
+        // 모터 PWM 계산
         int motor1_PWM, motor2_PWM, motor3_PWM, motor4_PWM;
 
         if (throttle_PWM <= PWM_MIN) {
@@ -323,14 +327,18 @@ int main() {
             motor3_PWM = PWM_MIN;
             motor4_PWM = PWM_MIN;
         } else {
+            // // 각 모터에 대한 보정값 적용
+            // int motor1_adj = aileron_adj_total + elevator_adj_total + yaw_adj;
+            // int motor2_adj = -aileron_adj_total - elevator_adj_total - yaw_adj;
+            // int motor3_adj = -aileron_adj_total - elevator_adj_total + yaw_adj;
+            // int motor4_adj = aileron_adj_total + elevator_adj_total - yaw_adj;
+            // 각 모터에 대한 보정값 적용
+            int motor1_adj =  + elevator_adj_total;
+            int motor2_adj =  - elevator_adj_total;
+            int motor3_adj =  + elevator_adj_total;
+            int motor4_adj =  - elevator_adj_total;
 
-            // 모터 조정값 계산
-            int motor1_adj =  roll_adj /*- pitch_adj + yaw_adj*/;
-            int motor2_adj = -roll_adj /*- pitch_adj + yaw_adj*/;
-            int motor3_adj = -roll_adj /*+ pitch_adj - yaw_adj*/;
-            int motor4_adj =  roll_adj /*+ pitch_adj - yaw_adj*/;
-            
-            // 조정값을 모터 PWM에 적용
+            // 최종 모터 PWM 값 계산
             motor1_PWM = throttle_PWM + motor1_adj;
             motor2_PWM = throttle_PWM + motor2_adj;
             motor3_PWM = throttle_PWM + motor3_adj;
@@ -348,9 +356,126 @@ int main() {
         pca9685.setMotorSpeed(1, motor2_PWM);
         pca9685.setMotorSpeed(2, motor3_PWM);
         pca9685.setMotorSpeed(3, motor4_PWM);
-        std::cout << "\rROLL: " << imuData.accelX << "PITCH: " << imuData.accelY << std::flush;
-        usleep(25000);
+
+        // // 디버깅 출력 (필요 시 주석 해제)
+        // std::cout << "\nAHRS Roll: " << imuData.roll_angle 
+        //           << " AHRS Pitch: " << imuData.pitch_angle 
+        //           << " AHRS Yaw: " << imuData.yaw_angle 
+        //           << " Motor1: " << motor1_PWM
+        //           << " Motor2: " << motor2_PWM
+        //           << " Motor3: " << motor3_PWM
+        //           << " Motor4: " << motor4_PWM
+        //           << std::flush;
+
+        // 디버깅 출력
+        // 디버깅 출력
+        std::cout << "\rRoll Adj: " << roll_adj 
+                << " Pitch Adj: " << pitch_adj 
+                << " Yaw Adj: " << yaw_adj 
+                << "AHRS Roll: " << imuData.roll_angle
+                << " AHRS Pitch: " << imuData.pitch_angle
+                << " AHRS Yaw: " << imuData.yaw_angle
+                << " Motor1: " << motor1_PWM
+                << " Motor2: " << motor2_PWM
+                << " Motor3: " << motor3_PWM
+                << " Motor4: " << motor4_PWM
+                << std::flush;
+
+        // std::cout << "\r Roll: " << roll_adj << " Pitch: " << pitch_adj << std::flush;
+
+        // std::this_thread::sleep_for(std::chrono::milliseconds(25)); 
+            }
+    // while (true) {
+    //     // 현재 시간 계산
+    //     auto imuStartTime = std::chrono::steady_clock::now();
+
+    //     // IMU 데이터 읽기
+    //     IMUData imuData = readIMU();
+
+    //     // 현재 시간과 IMU 시작 시간의 경과 시간 측정
+    //     auto imuEndTime = std::chrono::steady_clock::now();
+    //     std::chrono::duration<float> imuElapsed = imuEndTime - imuStartTime;
+    //     float dt = imuElapsed.count(); // dt는 초 단위
+
+    //     // IMU 데이터 보정
+    //     float correctedGyroZ = imuData.gyroZ - offsetGyroZ; // 보정된 자이로 Z값
+
+    //     // PID 계산 (RC 입력 대신 IMU 자세값 기반으로)
+    //     int roll_adj = rollPID.calculate(roll_com, imuData.roll_angle, dt);
+    //     int pitch_adj = pitchPID.calculate(pitch_com, imuData.pitch_angle, dt);
+    //     int yaw_adj = yawPID.calculate(yaw_com, correctedGyroZ, dt);
+
+    //     // 각 모터에 대한 보정값 적용
+    //     int motor1_adj = roll_adj - pitch_adj + yaw_adj;
+    //     int motor2_adj = -roll_adj - pitch_adj - yaw_adj;
+    //     int motor3_adj = -roll_adj + pitch_adj + yaw_adj;
+    //     int motor4_adj = roll_adj + pitch_adj - yaw_adj;
+
+    //     // PWM 값 계산 (자세 유지용)
+    //     int motor1_PWM = PWM_MIN + motor1_adj;
+    //     int motor2_PWM = PWM_MIN + motor2_adj;
+    //     int motor3_PWM = PWM_MIN + motor3_adj;
+    //     int motor4_PWM = PWM_MIN + motor4_adj;
+
+    //     // PWM 값 범위 제한
+    //     motor1_PWM = clamp(motor1_PWM, PWM_MIN, PWM_MAX);
+    //     motor2_PWM = clamp(motor2_PWM, PWM_MIN, PWM_MAX);
+    //     motor3_PWM = clamp(motor3_PWM, PWM_MIN, PWM_MAX);
+    //     motor4_PWM = clamp(motor4_PWM, PWM_MIN, PWM_MAX);
+
+    //     // 모터에 PWM 값 설정
+    //     pca9685.setMotorSpeed(0, motor1_PWM);
+    //     pca9685.setMotorSpeed(1, motor2_PWM);
+    //     pca9685.setMotorSpeed(2, motor3_PWM);
+    //     pca9685.setMotorSpeed(3, motor4_PWM);
+     
+    //     // 디버깅 출력
+    //     std::cout << "\rRoll Adj: " << roll_adj 
+    //             << " Pitch Adj: " << pitch_adj 
+    //             << " Yaw Adj: " << yaw_adj 
+    //             << "AHRS Roll: " << imuData.roll_angle
+    //             << " AHRS Pitch: " << imuData.pitch_angle
+    //             << " AHRS Yaw: " << imuData.yaw_angle
+    //             << " Motor1: " << motor1_PWM
+    //             << " Motor2: " << motor2_PWM
+    //             << " Motor3: " << motor3_PWM
+    //             << " Motor4: " << motor4_PWM
+    //             << std::flush;
+
+    //     // // 루프 주기 유지 (10Hz, 100ms)
+    //     // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    // }    
+        return nullptr;
     }
+
+auto previousTime = std::chrono::steady_clock::now();
+
+int main() {
+        // 메모리 잠금
+    if (mlockall(MCL_CURRENT | MCL_FUTURE) == -1) {
+        std::cerr << "Failed to lock memory!" << std::endl;
+        return -1;
+    }
+
+    // POSIX 스레드 생성
+    pthread_t thread;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+
+    // 스케줄링 정책 설정 (SCHED_FIFO, 우선순위 99)
+    sched_param param;
+    param.sched_priority = 99;
+    pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+    pthread_attr_setschedparam(&attr, &param);
+
+    // 스레드 생성
+    if (pthread_create(&thread, &attr, controlLoop, nullptr) != 0) {
+        std::cerr << "Failed to create thread!" << std::endl;
+        return -1;
+    }
+
+    // 메인 스레드 대기
+    pthread_join(thread, nullptr);
 
     return 0;
 }
