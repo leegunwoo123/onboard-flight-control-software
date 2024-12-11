@@ -240,7 +240,7 @@ void *controlLoop(void *arg) {
 
     float offsetGyroZ = calibrationData.offsetGyroZ;
 
-    PIDController rollPID(2.0f, 0.1f, 0.05f);
+    PIDController rollPID(2.0f, 0.1f, 0.05f); 
     PIDController pitchPID(2.0f, 0.5f, 0.2f);
     PIDController yawPID(1.2f, 0.5f, 0.5f);
 
@@ -327,16 +327,16 @@ void *controlLoop(void *arg) {
             motor3_PWM = PWM_MIN;
             motor4_PWM = PWM_MIN;
         } else {
-            // // 각 모터에 대한 보정값 적용
-            // int motor1_adj = aileron_adj_total + elevator_adj_total + yaw_adj;
-            // int motor2_adj = -aileron_adj_total - elevator_adj_total - yaw_adj;
-            // int motor3_adj = -aileron_adj_total - elevator_adj_total + yaw_adj;
-            // int motor4_adj = aileron_adj_total + elevator_adj_total - yaw_adj;
             // 각 모터에 대한 보정값 적용
-            int motor1_adj =  + elevator_adj_total;
-            int motor2_adj =  - elevator_adj_total;
-            int motor3_adj =  + elevator_adj_total;
-            int motor4_adj =  - elevator_adj_total;
+            int motor1_adj = aileron_adj_total + elevator_adj_total + yaw_adj;
+            int motor2_adj = -aileron_adj_total - elevator_adj_total - yaw_adj;
+            int motor3_adj = -aileron_adj_total + elevator_adj_total + yaw_adj;
+            int motor4_adj = aileron_adj_total - elevator_adj_total - yaw_adj;
+            // 각 모터에 대한 보정값 적용
+            // int motor1_adj =  + elevator_adj_total;
+            // int motor2_adj =  - elevator_adj_total;
+            // int motor3_adj =  + elevator_adj_total;
+            // int motor4_adj =  - elevator_adj_total;
 
             // 최종 모터 PWM 값 계산
             motor1_PWM = throttle_PWM + motor1_adj;
