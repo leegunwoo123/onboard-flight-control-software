@@ -315,6 +315,12 @@ void *controlLoop(void *arg) {
             motor2_PWM = clamp(throttle_PWM + motor2_adj, PWM_MIN, PWM_MAX);
             motor3_PWM = clamp(throttle_PWM + motor3_adj, PWM_MIN, PWM_MAX);
             motor4_PWM = clamp(throttle_PWM + motor4_adj, PWM_MIN, PWM_MAX);
+
+            // 최소값 보장 (PWM_MIN 이상의 값 유지)
+            motor1_PWM = std::max(motor1_PWM, PWM_MIN + 5); // 10은 임의의 최소 여유값
+            motor2_PWM = std::max(motor2_PWM, PWM_MIN + 5);
+            motor3_PWM = std::max(motor3_PWM, PWM_MIN + 5);
+            motor4_PWM = std::max(motor4_PWM, PWM_MIN + 5);
         }
 
         pca9685.setMotorSpeed(0, motor1_PWM);
