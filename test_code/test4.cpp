@@ -15,6 +15,7 @@
 #include <termios.h>           // B115200 설정
 #include <algorithm>           // std::clamp 함수 사용
 #include <chrono>              // 시간 측정을 위한 라이브러리
+#include <mutex>
 #include <thread>
 
 #define PCA9685_ADDR 0x40      // PCA9685 I2C 주소
@@ -153,7 +154,7 @@ struct PIDController {
     float alpha;               // 필터 계수
 
     // outlimit 설정 400->10로 기본 세팅
-    PIDController(float p, float i, float d, float ff = 0.0f, float i_limit = 10.0f, float out_limit = 10.0f, float filter_alpha = 0.1f)
+    PIDController(float p, float i, float d, float ff = 0.0f, float i_limit = 10.0f, float out_limit = 10.0f, float filter_alpha = 0.01f)
         : kp(p), ki(i), kd(d), feedforward(ff), prev_error(0.0f), integral(0.0f),
           integral_limit(i_limit), output_limit(out_limit), filtered_derivative(0.0f), alpha(filter_alpha) {}
 
@@ -252,7 +253,7 @@ void *controlLoop(void *arg) {
     PCA9685 pca9685;
     initRC("/dev/ttyAMA0", B115200);
 
-    PIDController rollPID(1.5f, 0.0f, 1.0f);
+    PIDController rollPID(20.0f, 0.0f, 15.0f);
     PIDController pitchPID(2.0f, 0.5f, 0.2f);
     PIDController yawPID(1.2f, 0.5f, 0.5f);
 
@@ -296,10 +297,10 @@ void *controlLoop(void *arg) {
         int motor1_PWM, motor2_PWM, motor3_PWM, motor4_PWM;
 
         if (throttle_PWM <= PWM_MIN) {
-            pca9685.setMotorSpeed(0, 0);
-            pca9685.setMotorSpeed(1, 0);
-            pca9685.setMotorSpeed(2, 0);
-            pca9685.setMotorSpeed(3, 0);
+            pca9685.setMotorSpeed(0, PWM_MIN);
+            pca9685.setMotorSpeed(1, PWM_MIN);
+            pca9685.setMotorSpeed(2, PWM_MIN);
+            pca9685.setMotorSpeed(3, PWM_MIN);
             continue;
         } else {
             int aileron_adj_total = computeAdjustment(aileron_normalized) + roll_adj;
@@ -322,6 +323,7 @@ void *controlLoop(void *arg) {
         pca9685.setMotorSpeed(3, motor4_PWM);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::cout << " roll: " << imuData.roll_angle << "\n";
     }
     return nullptr;
 }
