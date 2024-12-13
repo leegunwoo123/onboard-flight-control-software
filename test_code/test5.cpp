@@ -19,7 +19,7 @@
 #include <queue>
 #include <mutex>
 #include <condition_variable>
-
+#include <sched.h>              // 리얼타임 우선순위 확인 및 설정
 
 #define PCA9685_ADDR 0x40      // PCA9685 I2C 주소
 #define MODE1 0x00             // 모드1 레지스터
@@ -37,6 +37,14 @@ const int I2C_RETRY_LIMIT = 3; // I2C 오류 시 재시도 횟수
 const int SAFE_PWM = PWM_MIN;  // 초기화 및 안전한 PWM 값
 const float TOLERANCE_ROLL = 1;   // 롤 허용 오차 (0.45도)
 const float TOLERANCE_PITCH = 1;  // 피치 허용 오차 (0.45도)
+
+void setRealtimePriority(pthread_t thread, int priority) {
+    struct sched_param param;
+    param.sched_priority = priority; // 우선순위 1~99
+    if (pthread_setschedparam(thread, SCHED_FIFO, &param) != 0) {
+        perror("Failed to set real-time priority");
+    }
+}
 
 class PCA9685 {
 public:
@@ -216,7 +224,7 @@ std::condition_variable motorCv;
 std::queue<std::array<int, 4>> motorCommandQueue;
 
 // 모터 업데이트 스레드
-void *motorUpdateThread(void *arg) {
+void* motorUpdateThread(void* arg) {
     PCA9685 pca9685;
 
     while (true) {
@@ -234,10 +242,10 @@ void *motorUpdateThread(void *arg) {
 
     return nullptr;
 }
-
 // IMU 데이터와 mutex 정의
 IMUData imuData;
 std::mutex imuQueueMutex;
+std::queue<IMUData> imuDataQueue;
 std::condition_variable imuDataCv;
 
 // IMU 스레드 함수
@@ -246,9 +254,18 @@ void *imuThread(void *arg) {
     IMUCalibrationData calibrationData = calibrateIMU();
     float offsetGyroZ = calibrationData.offsetGyroZ;
 
+    auto previousTime = std::chrono::high_resolution_clock::now();
+
     while (true) {
         IMUData localIMUData = readIMU();
         localIMUData.gyroZ -= offsetGyroZ; // 보정된 자이로 Z값
+
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float, std::milli> elapsed = currentTime - previousTime; // 경과 시간 계산
+        float dt = elapsed.count(); // 밀리초로 변환
+        previousTime = currentTime;
+
+        std::cout << dt << " ms" << std::endl;
 
         // IMU 데이터를 큐에 추가
         {
@@ -257,7 +274,7 @@ void *imuThread(void *arg) {
         }
         imuDataCv.notify_one(); // 데이터 추가 알림
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     return nullptr;
 }
@@ -269,8 +286,7 @@ void *controlLoop(void *arg) {
     PIDController yawPID(1.2f, 0.5f, 0.5f);
 
     float roll_com = 0, pitch_com = 0;
-    auto previousTime = std::chrono::steady_clock::now();
-
+    auto previousTime = std::chrono::high_resolution_clock::now();
     while (true) {
         IMUData imuData;
 
@@ -283,19 +299,37 @@ void *controlLoop(void *arg) {
             imuDataQueue.pop();
         }
 
-        auto currentTime = std::chrono::steady_clock::now();
-        std::chrono::duration<float> elapsed = currentTime - previousTime;
-        float dt = elapsed.count();
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float, std::milli> elapsed = currentTime - previousTime; // 경과 시간 계산
+        float dt = elapsed.count(); // 밀리초로 변환
         previousTime = currentTime;
-        std::cout << dt << " ms" << std::endl;
 
+        // std::cout << dt << " ms" << std::endl;
         // IMU 데이터 사용
         float roll_angle = imuData.roll_angle;
         float pitch_angle = imuData.pitch_angle;
         float yaw_angle = imuData.yaw_angle;
-
-        int throttle_value = readRCChannel(3);
+        // int throttle_value = readRCChannel(3);
+        // int aileron_value = readRCChannel(1);
+        // int elevator_value = readRCChannel(2);
+        // int rudder_value = readRCChannel(4);
+        // int throttle_value = readRCChannel(3);
+        int throttle_value = 210;
         double throttle_normalized = mapThrottle(throttle_value);
+        double aileron_normalized = 0;
+        double elevator_normalized = 0;
+        double rudder_normalized = 0;
+
+        float roll_adj = 0;
+        float pitch_adj = 0;
+        float yaw_adj = 0;
+
+        if (imuData.roll_angle < -TOLERANCE_ROLL || imuData.roll_angle > TOLERANCE_ROLL) {
+            roll_adj = rollPID.calculate(0.0f, imuData.roll_angle, dt);
+        }
+        if (imuData.pitch_angle < -TOLERANCE_PITCH || imuData.pitch_angle > TOLERANCE_PITCH) {
+            pitch_adj = pitchPID.calculate(0.0f, imuData.pitch_angle, dt);
+        }
 
         // PID 계산
         int throttle_PWM = computeThrottlePWM(throttle_normalized);
@@ -304,26 +338,28 @@ void *controlLoop(void *arg) {
         if (throttle_PWM <= PWM_MIN) {
             motor1_PWM = motor2_PWM = motor3_PWM = motor4_PWM = PWM_MIN;
         } else {
-            int roll_adj = rollPID.calculate(roll_com, roll_angle, dt);
-            int pitch_adj = pitchPID.calculate(pitch_com, pitch_angle, dt);
+            int aileron_adj_total = computeAdjustment(aileron_normalized) + roll_adj;
+            int elevator_adj_total = computeAdjustment(elevator_normalized) + pitch_adj;
+            
+            int motor1_adj = -aileron_adj_total + elevator_adj_total + yaw_adj;
+            int motor2_adj = aileron_adj_total - elevator_adj_total - yaw_adj;
+            int motor3_adj = aileron_adj_total + elevator_adj_total + yaw_adj;
+            int motor4_adj = -aileron_adj_total - elevator_adj_total - yaw_adj;
 
-            int aileron_adj = computeAdjustment(mapControlInput(readRCChannel(1)));
-            int elevator_adj = computeAdjustment(mapControlInput(readRCChannel(2)));
-
-            motor1_PWM = clamp(throttle_PWM - aileron_adj + elevator_adj, PWM_MIN, PWM_MAX);
-            motor2_PWM = clamp(throttle_PWM + aileron_adj - elevator_adj, PWM_MIN, PWM_MAX);
-            motor3_PWM = clamp(throttle_PWM + aileron_adj + elevator_adj, PWM_MIN, PWM_MAX);
-            motor4_PWM = clamp(throttle_PWM - aileron_adj - elevator_adj, PWM_MIN, PWM_MAX);
+            motor1_PWM = clamp(throttle_PWM + motor1_adj, PWM_MIN, PWM_MAX);
+            motor2_PWM = clamp(throttle_PWM + motor2_adj, PWM_MIN, PWM_MAX);
+            motor3_PWM = clamp(throttle_PWM + motor3_adj, PWM_MIN, PWM_MAX);
+            motor4_PWM = clamp(throttle_PWM + motor4_adj, PWM_MIN, PWM_MAX);
         }
 
-        // 모터 명령 큐에 추가
-        {
-            std::lock_guard<std::mutex> lock(motorMutex);
-            motorCommandQueue.push({motor1_PWM, motor2_PWM, motor3_PWM, motor4_PWM});
-        }
-        motorCv.notify_one();
+        // // 모터 명령 큐에 추가
+        // {
+        //     std::lock_guard<std::mutex> lock(motorMutex);
+        //     motorCommandQueue.push({motor1_PWM, motor2_PWM, motor3_PWM, motor4_PWM});
+        // }
+        // motorCv.notify_one();
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100)); 
     }
 
     return nullptr;
@@ -336,30 +372,31 @@ int main() {
         return -1;
     }
 
-    pthread_t imuThreadHandle, controlThreadHandle, motorThreadHandle;
+    // pthread_t imuThreadHandle, controlThreadHandle, motorThreadHandle;
+    pthread_t imuThreadHandle, controlThreadHandle;
 
-    // IMU 스레드 생성
     if (pthread_create(&imuThreadHandle, nullptr, imuThread, nullptr) != 0) {
         std::cerr << "Failed to create IMU thread!" << std::endl;
         return -1;
     }
+    setRealtimePriority(imuThreadHandle, 50); // IMU 스레드의 우선순위 설정
 
-    // PID 계산 스레드 생성
     if (pthread_create(&controlThreadHandle, nullptr, controlLoop, nullptr) != 0) {
         std::cerr << "Failed to create Control thread!" << std::endl;
         return -1;
     }
+    setRealtimePriority(controlThreadHandle, 99); // PID 계산 스레드의 우선순위 설정
 
-    // 모터 업데이트 스레드 생성
-    if (pthread_create(&motorThreadHandle, nullptr, motorUpdateThread, nullptr) != 0) {
-        std::cerr << "Failed to create Motor Update thread!" << std::endl;
-        return -1;
-    }
+    // // 모터 업데이트 스레드 생성
+    // if (pthread_create(&motorThreadHandle, nullptr, motorUpdateThread, nullptr) != 0) {
+    //     std::cerr << "Failed to create Motor Update thread!" << std::endl;
+    //     return -1;
+    // }
 
     // 모든 스레드 종료 대기
     pthread_join(imuThreadHandle, nullptr);
     pthread_join(controlThreadHandle, nullptr);
-    pthread_join(motorThreadHandle, nullptr);
+    // pthread_join(motorThreadHandle, nullptr);
 
     return 0;
 }
