@@ -16,10 +16,7 @@
 #include <algorithm>           // std::clamp 함수 사용
 #include <chrono>              // 시간 측정을 위한 라이브러리
 #include <thread>
-#include <queue>
 #include <mutex>
-#include <condition_variable>
-#include <sched.h>              // 리얼타임 우선순위 확인 및 설정
 
 #define PCA9685_ADDR 0x40      // PCA9685 I2C 주소
 #define MODE1 0x00             // 모드1 레지스터
@@ -30,21 +27,18 @@
 const int RC_MIN = 172;
 const int RC_MAX = 1811;
 const int RC_MID = 991;
-const int PWM_MIN = 210;
-const int PWM_MAX = 405;
+// const int PWM_MIN = 210; // 50Hz 기준
+// const int PWM_MAX = 405; // 50Hz 기준
+const int PWM_MIN = 1680;  // 400Hz 기준
+const int PWM_MAX = 3240;  // 400Hz 기준
 const int MAX_ADJUSTMENT = 10; // 각 제어 입력의 최대 PWM 조정 값
 const int I2C_RETRY_LIMIT = 3; // I2C 오류 시 재시도 횟수
 const int SAFE_PWM = PWM_MIN;  // 초기화 및 안전한 PWM 값
-const float TOLERANCE_ROLL = 1;   // 롤 허용 오차 (0.45도)
-const float TOLERANCE_PITCH = 1;  // 피치 허용 오차 (0.45도)
+const int LOOP_DELAY_US = 26000; // 주기적인 대기 시간 (10ms)
+const float MAX_ANGLE = 90.0f;           // 최대 각도 (예시)
+const float TOLERANCE_ROLL = 0.05f * MAX_ANGLE;   // 롤 허용 오차 (0.45도)
+const float TOLERANCE_PITCH = 0.01f * MAX_ANGLE;  // 피치 허용 오차 (0.45도)
 
-void setRealtimePriority(pthread_t thread, int priority) {
-    struct sched_param param;
-    param.sched_priority = priority; // 우선순위 1~99
-    if (pthread_setschedparam(thread, SCHED_FIFO, &param) != 0) {
-        perror("Failed to set real-time priority");
-    }
-}
 class PCA9685 {
 public:
     PCA9685(int address = PCA9685_ADDR) {
@@ -60,7 +54,10 @@ public:
             exit(1);
         }
         reset();
-        setPWMFreq(50);  // Set frequency to 50Hz for motor control
+        setPWMFreq(50);
+
+        // setPWMFreq(100);  // Set frequency to 100Hz for motor control
+        setPWMFreq(400);  // Set frequency to 400Hz for motor control
         initializeMotors(); // 모든 모터를 초기 안전 PWM 값으로 설정
     }
 
@@ -85,22 +82,43 @@ public:
         }
         setPWM(channel, 0, pwm_value);
     }
-
-    void setAllMotorsSpeeds(const int pwm_values[4]) {
-        uint8_t buffer[17];
-        buffer[0] = LED0_ON_L;
-
-        for (int i = 0; i < 4; i++) {
-            int pwm = std::clamp(pwm_values[i], PWM_MIN, PWM_MAX);
-            buffer[1 + i * 4] = 0;
-            buffer[2 + i * 4] = 0;
-            buffer[3 + i * 4] = pwm & 0xFF;
-            buffer[4 + i * 4] = pwm >> 8;
+    
+    void setAllMotorsSpeed(const std::vector<int>& pwm_values) {
+        if (pwm_values.size() > 16) { // PCA9685는 최대 16 채널까지 지원
+            std::cerr << "Too many channels. PCA9685 supports up to 16 channels." << std::endl;
+            return;
         }
 
-        asyncWrite(buffer, sizeof(buffer));
-    }
+        uint8_t buffer[69]; // 최대 16 채널 (4 bytes * 16 = 64) + 1 byte (start register address)
+        buffer[0] = LED0_ON_L; // 시작 레지스터 (LED0_ON_L)
 
+        // 각 모터 채널에 대해 PWM 데이터를 작성
+        for (size_t i = 0; i < pwm_values.size(); ++i) {
+            if (pwm_values[i] < PWM_MIN || pwm_values[i] > PWM_MAX) {
+                std::cerr << "PWM value out of range for channel " << i
+                        << " (" << PWM_MIN << "-" << PWM_MAX << ")" << std::endl;
+                return;
+            }
+
+            int on = 0; // ON 시간은 항상 0으로 설정 (PWM 신호 시작 시점 고정)
+            int off = pwm_values[i]; // OFF 시간만 설정 (PWM 듀티 비율 조절)
+
+            buffer[1 + i * 4] = on & 0xFF;             // LEDn_ON_L
+            buffer[2 + i * 4] = (on >> 8) & 0xFF;     // LEDn_ON_H
+            buffer[3 + i * 4] = off & 0xFF;           // LEDn_OFF_L
+            buffer[4 + i * 4] = (off >> 8) & 0xFF;    // LEDn_OFF_H
+        }
+
+        // 블록 전송으로 모든 채널 업데이트
+        int retries = 0;
+        while (write(fd, buffer, 1 + pwm_values.size() * 4) != 1 + pwm_values.size() * 4) {
+            if (++retries >= I2C_RETRY_LIMIT) {
+                std::cerr << "Failed to write to the i2c bus after retries" << std::endl;
+                exit(1);
+            }
+            usleep(1000); // 1ms 대기 후 재시도
+        }
+    }
 private:
     int fd;
 
@@ -127,7 +145,7 @@ private:
                 std::cerr << "Failed to write to the i2c bus after retries" << std::endl;
                 exit(1);
             }
-            usleep(1000); // 1ms 대기 후 재시도
+            // usleep(1000); // 1ms 대기 후 재시도
         }
     }
 
@@ -169,11 +187,11 @@ struct PIDController {
     float integral_limit;
     float output_limit;
     float feedforward;
-    float filtered_derivative; 
-    float alpha;               
+    float filtered_derivative; // 필터링된 미분 항
+    float alpha;               // 필터 계수
 
     // outlimit 설정 400->10로 기본 세팅
-    PIDController(float p, float i, float d, float ff = 0.0f, float i_limit = 10.0f, float out_limit = 10.0f, float filter_alpha = 0.1f)
+    PIDController(float p, float i, float d, float ff = 0.0f, float i_limit = 10.0f, float out_limit = (PWM_MAX - PWM_MIN)*0.1f, float filter_alpha = 0.1f)
         : kp(p), ki(i), kd(d), feedforward(ff), prev_error(0.0f), integral(0.0f),
           integral_limit(i_limit), output_limit(out_limit), filtered_derivative(0.0f), alpha(filter_alpha) {}
 
@@ -247,19 +265,8 @@ int clamp(int value, int min_value, int max_value) {
 }
 
 // IMU 데이터와 mutex 정의
-IMUData imuData;
-std::mutex imuQueueMutex;
-std::queue<IMUData> imuDataQueue;
-std::condition_variable imuDataCv;
-
-void *sendIMURequestThread(void *arg) {
-    while (true) {
-        sendIMURequest();  // IMU 데이터 요청 전송
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));  // 요청 주기 조정
-    }
-    return nullptr;
-}
-
+IMUData imuData = {};
+std::mutex imuMutex;
 // IMU 스레드 함수
 void *imuThread(void *arg) {
     initIMU("/dev/ttyUSB0", B115200);
@@ -267,15 +274,16 @@ void *imuThread(void *arg) {
     float offsetGyroZ = calibrationData.offsetGyroZ;
 
     while (true) {
-        IMUData localIMUData = readIMU();
+        IMUData localIMUData = readIMU(imuData);
         localIMUData.gyroZ -= offsetGyroZ; // 보정된 자이로 Z값
 
-        // IMU 데이터를 큐에 추가
+        // Mutex로 IMU 데이터 보호
         {
-            std::lock_guard<std::mutex> lock(imuQueueMutex);
-            imuDataQueue.push(localIMUData);
+            std::lock_guard<std::mutex> lock(imuMutex);
+            imuData = localIMUData;
         }
-        imuDataCv.notify_one(); // 데이터 추가 알림
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     return nullptr;
 }
@@ -285,25 +293,32 @@ void *controlLoop(void *arg) {
     PCA9685 pca9685;
     initRC("/dev/ttyAMA0", B115200);
 
-    PIDController rollPID(1.5f, 0.0f, 1.0f);
-    PIDController pitchPID(2.0f, 0.5f, 0.2f);
+    PIDController rollPID(1.0f, 0.01f, 0.5f);
+    PIDController pitchPID(0.0f, 0.0f, 0.0f);
     PIDController yawPID(1.2f, 0.5f, 0.5f);
 
     float roll_com = 0;
     float pitch_com = 0;
-    auto previousTime = std::chrono::steady_clock::now();
+    auto previousTime = std::chrono::high_resolution_clock::now();
+
+    int roll_adj = 0;
+    int pitch_adj = 0;
+    int yaw_adj = 0;
 
     while (true) {
-        auto currentTime = std::chrono::steady_clock::now();
-        std::chrono::duration<float> elapsed = currentTime - previousTime;
-        float dt = elapsed.count();
-        previousTime = currentTime;
-
+        // std::this_thread::sleep_for(std::chrono::milliseconds(100));
         IMUData localIMUData;
         {
             std::lock_guard<std::mutex> lock(imuMutex);
             localIMUData = imuData;
         }
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float, std::milli> elapsed = currentTime - previousTime; // 경과 시간 계산
+        float dt = elapsed.count(); // 밀리초로 변환
+        previousTime = currentTime;
+        // std::cout << "dt: " << dt << std::endl;
+
+        dt = dt / 1000.0f;
 
         int throttle_value = readRCChannel(3);
         int aileron_value = readRCChannel(1);
@@ -315,47 +330,49 @@ void *controlLoop(void *arg) {
         double elevator_normalized = mapControlInput(elevator_value);
         double rudder_normalized = mapControlInput(rudder_value);
 
-        int roll_adj = 0;
-        int pitch_adj = 0;
-        int yaw_adj = 0;
         if (std::abs(roll_com - localIMUData.roll_angle) > TOLERANCE_ROLL) {
             roll_adj = rollPID.calculate(roll_com, localIMUData.roll_angle, dt);
         }
         if (std::abs(pitch_com - localIMUData.pitch_angle) > TOLERANCE_PITCH) {
             pitch_adj = pitchPID.calculate(pitch_com, localIMUData.pitch_angle, dt);
         }
+  
         // int yaw_adj = yawPID.calculate(rudder_normalized, correctedGyroZ, dt);
         int throttle_PWM = computeThrottlePWM(throttle_normalized);
         int motor1_PWM, motor2_PWM, motor3_PWM, motor4_PWM;
-
-        
+        std::cout << "localIMUData.roll_angle: " << localIMUData.roll_angle << std::endl;
+        std::cout << "roll_adj: " << roll_adj << std::endl;
         if (throttle_PWM <= PWM_MIN) {
-            pca9685.setMotorSpeed(0, PWM_MIN);
-            pca9685.setMotorSpeed(1, PWM_MIN);
-            pca9685.setMotorSpeed(2, PWM_MIN);
-            pca9685.setMotorSpeed(3, PWM_MIN);
+            std::vector<int> motor_min_pwm = {PWM_MIN, PWM_MIN, PWM_MIN, PWM_MIN};
+            pca9685.setAllMotorsSpeed(motor_min_pwm);
             continue;
-        } else {
+        } 
+        else {
             int aileron_adj_total = computeAdjustment(aileron_normalized) + roll_adj;
-            int elevator_adj_total = computeAdjustment(elevator_normalized) + pitch_adj;
-
+            // int elevator_adj_total = computeAdjustment(elevator_normalized) + pitch_adj;
+            int elevator_adj_total = 0;
+            //std::cout << "adj: " << roll_adj << "total" << aileron_adj_total << std::endl;
             int motor1_adj = -aileron_adj_total + elevator_adj_total + yaw_adj;
             int motor2_adj = aileron_adj_total - elevator_adj_total - yaw_adj;
             int motor3_adj = aileron_adj_total + elevator_adj_total + yaw_adj;
             int motor4_adj = -aileron_adj_total - elevator_adj_total - yaw_adj;
-
+            
             motor1_PWM = clamp(throttle_PWM + motor1_adj, PWM_MIN, PWM_MAX);
             motor2_PWM = clamp(throttle_PWM + motor2_adj, PWM_MIN, PWM_MAX);
             motor3_PWM = clamp(throttle_PWM + motor3_adj, PWM_MIN, PWM_MAX);
             motor4_PWM = clamp(throttle_PWM + motor4_adj, PWM_MIN, PWM_MAX);
+            
         }
-
-        int motor_pwm[4] = {motor1_PWM, motor2_PWM, motor3_PWM, motor4_PWM};
-
+        std::vector<int> motor_pwm = {motor1_PWM, motor2_PWM, motor3_PWM, motor4_PWM};
+        pca9685.setAllMotorsSpeed(motor_pwm);
+        
         pca9685.setMotorSpeed(0, motor1_PWM);
         pca9685.setMotorSpeed(1, motor2_PWM);
         pca9685.setMotorSpeed(2, motor3_PWM);
         pca9685.setMotorSpeed(3, motor4_PWM);
+
+        // std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        
     }
     return nullptr;
 }
