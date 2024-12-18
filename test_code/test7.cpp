@@ -54,7 +54,7 @@ public:
             exit(1);
         }
         reset();
-        setPWMFreq(50);
+        // setPWMFreq(50);
 
         // setPWMFreq(100);  // Set frequency to 100Hz for motor control
         setPWMFreq(400);  // Set frequency to 400Hz for motor control
