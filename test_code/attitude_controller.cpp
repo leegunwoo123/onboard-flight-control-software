@@ -11,7 +11,7 @@
 #include <iomanip>
 #include <termios.h>
 
-// 각 축에 대한 PID 제어기 설정
+// 각 축에 대한 PID 제어기 설정 변수
 PIDController roll_pid(0.1f, 0.01f, 0.05f);
 PIDController pitch_pid(0.1f, 0.01f, 0.05f);
 PIDController yaw_pid(0.2f, 0.01f, 0.1f);
